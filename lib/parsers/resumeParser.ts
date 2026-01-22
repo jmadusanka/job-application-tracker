@@ -1,19 +1,26 @@
+import * as pdfParse from 'pdf-parse';
+
 export interface ParsedResume {
   text: string;
   fileName: string;
   fileType: string;
 }
 
-// Parse PDF file (placeholder - will implement with pdf-parse library)
+// Parse PDF file
 export async function parsePDF(buffer: Buffer): Promise<string> {
-  // TODO: Install and use pdf-parse library
-  return 'PDF parsing not yet implemented. Install pdf-parse package.';
+  try {
+    const data = await pdfParse(buffer);
+    return data.text;
+  } catch (error) {
+    console.error('PDF parsing error:', error);
+    throw new Error('Failed to parse PDF file');
+  }
 }
 
-// Parse DOCX file (placeholder - will implement with mammoth library)
+// Parse DOCX file (placeholder - basic implementation)
 export async function parseDOCX(buffer: Buffer): Promise<string> {
-  // TODO: Install and use mammoth library
-  return 'DOCX parsing not yet implemented. Install mammoth package.';
+  // For POC, return a message. In production, install mammoth package
+  return 'DOCX parsing not fully implemented. Please use PDF for now.';
 }
 
 // Main parser function

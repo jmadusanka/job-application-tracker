@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, ChangeEvent } from 'react';
 import { useApplications } from '@/context/ApplicationContext';
 import { NewApplicationInput, ApplicationStatus, ApplicationChannel } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -21,18 +21,67 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
     jobTitle: '',
     company: '',
     location: '',
-    status: 'Applied',
+    status: 'Analyzed',
     channel: 'Company Portal',
     jobDescription: '',
-    resumeName: 'resume.pdf'
+    resumeName: ''
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      if (!validTypes.includes(file.type)) {
+        alert('Please upload a PDF or DOC file');
+        return;
+      }
+      // Validate file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB');
+        return;
+      }
+      setSelectedFile(file);
+      setFormData({ ...formData, resumeName: file.name });
+    }
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
     if (!formData.jobTitle || !formData.company || !formData.location || !formData.jobDescription) {
       alert('Please fill in all required fields');
       return;
+    }
+
+    // Upload resume if file selected
+    if (selectedFile) {
+      setUploading(true);
+      try {
+        const formDataUpload = new FormData();
+        formDataUpload.append('file', selectedFile);
+        
+        const response = await fetch('/api/resume/upload', {
+          method: 'POST',
+          body: formDataUpload,
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to upload resume');
+        }
+        
+        const result = await response.json();
+        // Update form data with uploaded file info
+        formData.resumeName = result.filename;
+      } catch (error) {
+        console.error('Upload error:', error);
+        alert('Failed to upload resume. Please try again.');
+        setUploading(false);
+        return;
+      }
+      setUploading(false);
     }
 
     addApplication(formData as NewApplicationInput);
@@ -98,6 +147,7 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value as ApplicationStatus })}
                 >
+                  <option value="Analyzed">Analyzed</option>
                   <option value="Applied">Applied</option>
                   <option value="Interview">Interview</option>
                   <option value="Offer">Offer</option>
@@ -139,25 +189,38 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
               <div className="flex items-center gap-2">
                 <Input
                   id="resumeName"
-                  value={formData.resumeName}
-                  onChange={(e) => setFormData({ ...formData, resumeName: e.target.value })}
-                  placeholder="resume.pdf"
+                  value={formData.resumeName || 'No file selected'}
+                  readOnly
+                  placeholder="No file selected"
+                  className="flex-1"
                 />
-                <Button type="button" variant="outline" size="sm">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => document.getElementById('fileInput')?.click()}
+                >
                   <Upload className="w-4 h-4 mr-2" />
                   Browse
                 </Button>
+                <input
+                  id="fileInput"
+                  type="file"
+                  accept=".pdf,.doc,.docx"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
               </div>
               <p className="text-xs text-slate-500">
-                Note: Resume upload is simulated in this POC
+                Upload PDF or DOC file (max 5MB)
               </p>
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button type="submit" className="flex-1">
-                Add Application
+              <Button type="submit" className="flex-1" disabled={uploading}>
+                {uploading ? 'Uploading...' : 'Add Application'}
               </Button>
-              <Button type="button" variant="outline" onClick={onClose}>
+              <Button type="button" variant="outline" onClick={onClose} disabled={uploading}>
                 Cancel
               </Button>
             </div>

@@ -16,6 +16,8 @@ export function ApplicationCard({ application }: ApplicationCardProps) {
 
   const getStatusVariant = (status: string) => {
     switch (status) {
+      case 'Analyzed':
+        return 'default'; // Gray/neutral for analyzed
       case 'Interview':
         return 'warning';
       case 'Offer':
