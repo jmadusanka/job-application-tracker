@@ -1,18 +1,30 @@
 'use client';
 
 import { useApplications } from '@/context/ApplicationContext';
-import { JobApplication } from '@/lib/types';
+import { JobApplication, ApplicationStatus } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, MapPin, Briefcase } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
 
 interface ApplicationCardProps {
   application: JobApplication;
 }
 
 export function ApplicationCard({ application }: ApplicationCardProps) {
-  const { selectedApplicationId, selectApplication } = useApplications();
+  const { selectedApplicationId, selectApplication, updateApplication } = useApplications();
   const isSelected = selectedApplicationId === application.id;
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+
+  const handleStatusClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowStatusMenu(!showStatusMenu);
+  };
+
+  const handleStatusChange = (newStatus: ApplicationStatus) => {
+    updateApplication(application.id, { status: newStatus });
+    setShowStatusMenu(false);
+  };
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -50,9 +62,49 @@ export function ApplicationCard({ application }: ApplicationCardProps) {
           <h3 className="font-semibold text-slate-900 mb-1">{application.jobTitle}</h3>
           <p className="text-sm text-slate-600 font-medium">{application.company}</p>
         </div>
-        <Badge variant={getStatusVariant(application.status)}>
-          {application.status}
-        </Badge>
+        <div className="relative">
+          <Badge 
+            variant={getStatusVariant(application.status)}
+            className="cursor-pointer hover:opacity-80"
+            onClick={handleStatusClick}
+          >
+            {application.status}
+          </Badge>
+          {showStatusMenu && (
+            <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 min-w-[110px] py-1">
+              <div
+                className="px-3 py-1.5 text-xs hover:bg-slate-100 cursor-pointer"
+                onClick={(e) => { e.stopPropagation(); handleStatusChange('Analyzed'); }}
+              >
+                Analyzed
+              </div>
+              <div
+                className="px-3 py-1.5 text-xs hover:bg-slate-100 cursor-pointer"
+                onClick={(e) => { e.stopPropagation(); handleStatusChange('Applied'); }}
+              >
+                Applied
+              </div>
+              <div
+                className="px-3 py-1.5 text-xs hover:bg-slate-100 cursor-pointer"
+                onClick={(e) => { e.stopPropagation(); handleStatusChange('Interview'); }}
+              >
+                Interview
+              </div>
+              <div
+                className="px-3 py-1.5 text-xs hover:bg-slate-100 cursor-pointer"
+                onClick={(e) => { e.stopPropagation(); handleStatusChange('Offer'); }}
+              >
+                Offer
+              </div>
+              <div
+                className="px-3 py-1.5 text-xs hover:bg-slate-100 cursor-pointer"
+                onClick={(e) => { e.stopPropagation(); handleStatusChange('Rejected'); }}
+              >
+                Rejected
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="space-y-1.5 text-xs text-slate-500 mb-3">
