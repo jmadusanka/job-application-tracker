@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
+import { useSupabase } from '@/context/SupabaseProvider';
 import { useApplications } from '@/context/ApplicationContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ApplicationList } from '@/components/applications/ApplicationList';
@@ -16,16 +16,16 @@ import { FileSearch } from 'lucide-react';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { session } = useSupabase();
   const { selectedApplication } = useApplications();
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!session) {
       router.push('/login');
     }
-  }, [isAuthenticated, router]);
+  }, [session, router]);
 
-  if (!isAuthenticated) {
+  if (!session) {
     return null;
   }
 
@@ -46,19 +46,12 @@ export default function DashboardPage() {
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h2 className="text-2xl font-bold text-slate-900 mb-1">
-                        {selectedApplication.jobTitle}
-                      </h2>
-                      <p className="text-lg text-slate-600 mb-2">
-                        {selectedApplication.company}
-                      </p>
-                      <div className="flex items-center gap-4 text-sm text-slate-500">
-                        <span>📍 {selectedApplication.location}</span>
-                        <span>•</span>
-                        <span>📅 Applied {selectedApplication.applicationDate.toLocaleDateString()}</span>
-                        <span>•</span>
-                        <span>📄 {selectedApplication.resumeName}</span>
-                      </div>
+                      <h2 className="text-xl font-bold text-slate-900 mb-1">{selectedApplication.jobTitle}</h2>
+                      <p className="text-sm text-slate-600">{selectedApplication.company} - {selectedApplication.location}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-slate-500">Applied on {selectedApplication.applicationDate.toLocaleDateString()}</p>
+                      <p className="text-sm text-slate-500">Via {selectedApplication.channel}</p>
                     </div>
                   </div>
                 </CardContent>

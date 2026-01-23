@@ -93,6 +93,9 @@ export function ImprovementSuggestions({ suggestions }: ImprovementSuggestionsPr
               </div>
             </div>
           ))}
+          {suggestions.length === 0 && (
+            <p className="text-sm text-slate-500 text-center">No suggestions available.</p>
+          )}
         </div>
       </CardContent>
     </Card>

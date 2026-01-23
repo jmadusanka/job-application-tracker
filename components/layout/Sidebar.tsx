@@ -1,18 +1,20 @@
 'use client';
 
-import { useAuth } from '@/context/AuthContext';
+import { useSupabase } from '@/context/SupabaseProvider';
 import { useRouter } from 'next/navigation';
 import { LayoutDashboard, LogOut, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export function Sidebar() {
-  const { user, logout } = useAuth();
+  const { supabase, session } = useSupabase();
   const router = useRouter();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     router.push('/login');
   };
+
+  const user = session?.user;
 
   return (
     <div className="w-60 h-screen bg-slate-900 text-white flex flex-col fixed left-0 top-0">
@@ -29,7 +31,7 @@ export function Sidebar() {
             <User className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{user?.name}</p>
+            <p className="text-sm font-medium truncate">{user?.user_metadata?.name || user?.email || 'User'}</p>
             <p className="text-xs text-slate-400 truncate">{user?.email}</p>
           </div>
         </div>
