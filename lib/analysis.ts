@@ -1,84 +1,165 @@
-import { JobApplication, AnalysisResults, NewApplicationInput } from './types';
-import { model } from './gemini'; // Gemini model
+// lib/analysis.ts
+import { JobApplication, AnalysisResults, NewApplicationInput, Suggestion, SkillGap } from './types'
+import { model } from './gemini' // Gemini model
 
-// Common tech skills for extraction (kept for semi-mock)
+// ── Common tech skills for fallback extraction (semi-mock) ────────────────────────
 const TECH_SKILLS = [
-  'JavaScript', 'TypeScript', 'Python', 'Java', 'React', 'Node.js', 'Angular', 
-  'Vue.js', 'Next.js', 'Express', 'Django', 'Flask', 'Spring Boot', 'Docker', 
+  'JavaScript', 'TypeScript', 'Python', 'Java', 'React', 'Node.js', 'Angular',
+  'Vue.js', 'Next.js', 'Express', 'Django', 'Flask', 'Spring Boot', 'Docker',
   'Kubernetes', 'AWS', 'Azure', 'GCP', 'Git', 'CI/CD', 'REST API', 'GraphQL',
   'MongoDB', 'PostgreSQL', 'MySQL', 'Redis', 'Microservices', 'Agile', 'Scrum',
   'TDD', 'Unit Testing', 'HTML', 'CSS', 'Tailwind CSS', 'Redux', 'SQL',
   'Communication', 'Leadership', 'Problem Solving', 'Team Collaboration'
-];
+]
 
-// Extract skills from job description (simulated)
+// ── Extract skills from job description (fallback when no AI) ────────────────────
 export function extractSkillsFromDescription(description: string): string[] {
-  const descriptionLower = description.toLowerCase();
-  return TECH_SKILLS.filter(skill => 
+  const descriptionLower = description.toLowerCase()
+  return TECH_SKILLS.filter(skill =>
     descriptionLower.includes(skill.toLowerCase())
-  );
+  )
 }
 
-// Generate AI-based suggestions using Gemini
-async function generateAISuggestions(jobDescription: string, resumeContent: string): Promise<Suggestion[]> {
+// ── Generate real AI suggestions using Gemini ────────────────────────────────────
+async function generateAISuggestions(
+  jobDescription: string,
+  resumeContent: string
+): Promise<Suggestion[]> {
   const prompt = `
-    Analyze the following job description and resume content. Provide improvement suggestions for the resume categorized into Summary, Experience, Skills, Format. 
-    For each suggestion, assign a priority: high, medium, low. Output as JSON array of objects with {category, text, priority}.
+You are an expert resume writer and career coach.
+Analyze this job description and the candidate's resume content (or summary).
 
-    Job Description: ${jobDescription}
-    Resume Content: ${resumeContent} // Mocked for now; integrate with upload
-  `;
+Job Title: (inferred from context)
+Job Description:
+${jobDescription.substring(0, 3500)} ${jobDescription.length > 3500 ? '...' : ''}
 
-  const result = await model.generateContent(prompt);
-  const responseText = result.response.text();
+Resume Content / Summary:
+${resumeContent || 'Resume content not yet parsed (placeholder - filename or summary will be used)'}
 
-  // Parse JSON (assume Gemini outputs valid JSON)
+Generate **exactly 4 to 6** highly specific, actionable resume improvement suggestions.
+Focus on:
+- Missing critical keywords from the job description
+- Weak professional summary
+- Experience bullets lacking impact or quantification
+- Skills gaps (technical & soft)
+- ATS/formatting issues
+
+For each suggestion return:
+- category: one of "Summary", "Experience", "Skills", "Format"
+- text: 1-2 clear, professional sentences (actionable advice)
+- priority: "high", "medium", or "low"
+
+Output **only** valid JSON — an array of objects. No extra text, no markdown, no explanation.
+Example output:
+[
+  {"category": "Skills", "text": "Add 'Next.js' and 'TypeScript' to your skills section — they appear 12 times in the JD.", "priority": "high"},
+  {"category": "Experience", "text": "Quantify achievements: change 'improved performance' to 'improved performance by 40%'.", "priority": "medium"}
+]
+`
+
   try {
-    return JSON.parse(responseText);
-  } catch (error) {
-    console.error('Gemini JSON parse error:', error);
-    return []; // Fallback
+    const result = await model.generateContent(prompt)
+    const responseText = result.response.text().trim()
+
+    // Clean possible code fences or extra whitespace
+    const cleaned = responseText
+      .replace(/^```json\s*/i, '')
+      .replace(/\s*```$/i, '')
+      .trim()
+
+    const parsed = JSON.parse(cleaned)
+
+    if (!Array.isArray(parsed)) {
+      throw new Error('Gemini did not return an array')
+    }
+
+    // Basic validation
+    return parsed.filter((item: any) =>
+      item &&
+      typeof item === 'object' &&
+      ['Summary', 'Experience', 'Skills', 'Format'].includes(item.category) &&
+      typeof item.text === 'string' &&
+      ['high', 'medium', 'low'].includes(item.priority?.toLowerCase())
+    ) as Suggestion[]
+  } catch (err) {
+    console.error('[generateAISuggestions] Error:', err)
+    // Fallback mock suggestions when Gemini fails
+    return [
+      {
+        category: 'Skills',
+        text: 'Include key technologies mentioned in the JD (e.g., React, TypeScript, AWS) in your skills section.',
+        priority: 'high'
+      },
+      {
+        category: 'Summary',
+        text: 'Rewrite your professional summary to directly target this role and highlight 2-3 strongest matching experiences.',
+        priority: 'high'
+      },
+      {
+        category: 'Experience',
+        text: 'Use strong action verbs and add metrics wherever possible (e.g., "increased conversion by 35%").',
+        priority: 'medium'
+      },
+      {
+        category: 'Format',
+        text: 'Ensure consistent formatting, bullet alignment, and ATS-friendly fonts (Arial/Calibri, 10-12pt).',
+        priority: 'medium'
+      },
+      {
+        category: 'Skills',
+        text: 'Add soft skills like "Agile methodologies" or "Cross-functional collaboration" if relevant.',
+        priority: 'low'
+      }
+    ]
   }
 }
 
-// Generate simulated analysis for a job application (semi-mock, with real AI suggestions)
+// ── Main analysis generator ──────────────────────────────────────────────────────
 export async function generateAnalysis(
   jobDescription: string,
   resumeName: string,
   jobTitle: string
 ): Promise<AnalysisResults> {
-  // Extract required skills from job description
-  const requiredSkills = extractSkillsFromDescription(jobDescription);
-  
-  // Simulate resume having some of the required skills (60-90% match)
-  const matchPercentage = 0.6 + Math.random() * 0.3;
-  const matchCount = Math.floor(requiredSkills.length * matchPercentage);
-  const matchedSkills = requiredSkills.slice(0, matchCount);
-  const missingSkills = requiredSkills.slice(matchCount).map(skill => ({
+  // Extract skills (fallback method)
+  const requiredSkills = extractSkillsFromDescription(jobDescription)
+
+  // Simulate resume skill match (60–95%)
+  const matchRatio = 0.6 + Math.random() * 0.35
+  const matchCount = Math.floor(requiredSkills.length * matchRatio)
+  const matchedSkills = requiredSkills.slice(0, matchCount)
+
+  // Fixed: use literal types that match SkillPriority union
+  const missingSkills: SkillGap[] = requiredSkills.slice(matchCount).map(skill => ({
     skill,
-    priority: Math.random() > 0.5 ? 'Required' : 'Nice-to-have'
-  }));
+    priority: Math.random() > 0.4 
+      ? 'Required' as const 
+      : 'Nice-to-have' as const
+  }))
 
-  // Simulate scores
-  const overallMatch = Math.floor(Math.random() * 40) + 60; // 60-100
+  // Simulated scores (will be replaced/improved later)
+  const overallMatch = Math.floor(55 + Math.random() * 45) // 55–100
   const subScores = {
-    skillsMatch: Math.floor(Math.random() * 40) + 60,
-    experienceMatch: Math.floor(Math.random() * 40) + 60,
-    languageLocationMatch: Math.floor(Math.random() * 40) + 60,
-  };
+    skillsMatch: Math.floor(50 + Math.random() * 50),
+    experienceMatch: Math.floor(50 + Math.random() * 50),
+    languageLocationMatch: Math.floor(60 + Math.random() * 40)
+  }
 
-  // Simulate ATS
-  const atsScore = Math.floor(Math.random() * 40) + 60;
+  // Simulated ATS
+  const atsScore = Math.floor(60 + Math.random() * 40)
   const atsIssues = [
-    { type: 'structure', severity: 'medium', message: 'Missing clear section headings' },
-    { type: 'keyword', severity: 'low', message: 'Could add more job-specific keywords' },
-  ];
+    { type: 'structure' as const, severity: 'medium' as const, message: 'Consider clearer section headings' },
+    { type: 'keyword' as const, severity: 'low' as const, message: 'More job-specific keywords would help' }
+  ]
 
-  // Mock resume content (replace with real parsed text from Manjula's upload)
-  const mockResumeContent = 'Experienced developer with skills in React, Node.js, and AWS. 5 years experience.';
+  // ── Resume content for AI ──────────────────────────────────────────────────
+  // In real version: parse uploaded PDF/docx here (Manjula's part)
+  // For now: use filename or placeholder
+  const resumeContentForAI = resumeName.includes('.pdf')
+    ? `Resume filename: ${resumeName}. Experienced developer with frontend focus.`
+    : resumeName || 'No resume content available yet (upload simulation)'
 
-  // Real AI suggestions
-  const suggestions = await generateAISuggestions(jobDescription, mockResumeContent);
+  // ── Get real or fallback suggestions ───────────────────────────────────────
+  const suggestions = await generateAISuggestions(jobDescription, resumeContentForAI)
 
   return {
     overallMatch,
@@ -87,33 +168,30 @@ export async function generateAnalysis(
     missingSkills,
     atsScore,
     atsIssues,
-    suggestions,
-  };
+    suggestions
+  }
 }
 
-// Generate mock applications (for initial load)
+// ── Mock applications (for initial load / testing) ──────────────────────────────
 export function generateMockApplications(): JobApplication[] {
-  const mockData: Omit<JobApplication, 'id' | 'analysis'>[] = [
-    // ... (keep the existing mock data array here, truncated in your original)
-    // For brevity, assuming the same as original; call generateAnalysis async if needed, but for init, use sync mock
-  ];
-  
-  return mockData.map(app => ({
-    ...app,
-    id: Date.now().toString(), // Temp ID
-    analysis: {} as AnalysisResults, // For init, use empty; in real, await
-  }));
+  // Keep your existing mock data array here
+  // For now returning empty or placeholder — replace with real mocks if needed
+  return []
 }
 
-// Create new application with generated analysis (async)
+// ── Create new application with analysis ───────────────────────────────────────
 export async function createApplication(input: NewApplicationInput): Promise<JobApplication> {
-  const id = Date.now().toString();
-  const analysis = await generateAnalysis(input.jobDescription, input.resumeName, input.jobTitle);
-  
+  const id = Date.now().toString()
+  const analysis = await generateAnalysis(
+    input.jobDescription,
+    input.resumeName,
+    input.jobTitle
+  )
+
   return {
     id,
     ...input,
     applicationDate: new Date(),
     analysis
-  };
+  }
 }
