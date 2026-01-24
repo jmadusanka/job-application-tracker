@@ -1,6 +1,6 @@
 // Core application types
 
-export type ApplicationStatus = 'Applied' | 'Interview' | 'Offer' | 'Rejected';
+export type ApplicationStatus = 'Analyzed' | 'Applied' | 'Interview' | 'Offer' | 'Rejected';
 export type ApplicationChannel = 'Email' | 'Company Portal' | 'LinkedIn';
 export type SkillPriority = 'Required' | 'Nice-to-have';
 export type ATSIssueType = 'structure' | 'keyword';
