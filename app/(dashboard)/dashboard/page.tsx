@@ -11,6 +11,7 @@ import { SubScores } from '@/components/analytics/SubScores';
 import { SkillsAnalysis } from '@/components/analytics/SkillsAnalysis';
 import { ATSCompatibility } from '@/components/analytics/ATSCompatibility';
 import { ImprovementSuggestions } from '@/components/analytics/ImprovementSuggestions';
+import { SuitabilityEngine } from '@/components/analytics/SuitabilityEngine';
 import { Card, CardContent } from '@/components/ui/card';
 import { FileSearch } from 'lucide-react';
 
@@ -69,6 +70,9 @@ export default function DashboardPage() {
 
               {/* Sub-Scores */}
               <SubScores subScores={selectedApplication.analysis.subScores} />
+
+              {/* Suitability Engine */}
+              <SuitabilityEngine />
 
               {/* Skills Analysis */}
               <SkillsAnalysis

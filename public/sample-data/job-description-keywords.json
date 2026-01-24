@@ -1,0 +1,23 @@
+{
+  "jobTitle": "Frontend Developer",
+  "company": "Example Tech",
+  "source": "Extracted from job description",
+  "keywords": {
+    "required": [
+      "React",
+      "TypeScript",
+      "Next.js",
+      "REST API",
+      "Redux",
+      "HTML",
+      "CSS",
+      "Git"
+    ],
+    "preferred": [
+      "AWS",
+      "Docker",
+      "CI/CD",
+      "GraphQL"
+    ]
+  }
+}
