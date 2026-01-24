@@ -2,13 +2,12 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { JobApplication, NewApplicationInput } from '@/lib/types';
-import { generateMockApplications } from '@/lib/analysis'; // Renamed from mockData
-import { createApplication } from '@/lib/analysis'; // Updated to async
+import { generateMockApplications, createApplication } from '@/lib/analysis';
 
 interface ApplicationContextType {
   applications: JobApplication[];
   selectedApplicationId: string | null;
-  addApplication: (input: NewApplicationInput) => void;
+  addApplication: (input: NewApplicationInput) => Promise<void>;
   updateApplication: (id: string, updates: Partial<JobApplication>) => void;
   selectApplication: (id: string) => void;
   deleteApplication: (id: string) => void;
@@ -49,8 +48,8 @@ useEffect(() => {
   }
 }, []);
 
-  const addApplication = (input: NewApplicationInput) => {
-    const newApp = createApplication(input);
+  const addApplication = async (input: NewApplicationInput) => {
+    const newApp = await createApplication(input);
     setApplications(prev => {
       const updated = [newApp, ...prev];
       localStorage.setItem('jobApplications', JSON.stringify(updated));

@@ -74,6 +74,7 @@ Example output:
     }
 
     // Basic validation
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return parsed.filter((item: any) =>
       item &&
       typeof item === 'object' &&
@@ -118,7 +119,8 @@ Example output:
 export async function generateAnalysis(
   jobDescription: string,
   resumeName: string,
-  jobTitle: string
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _jobTitle: string  // Prefixed with _ to indicate intentionally unused
 ): Promise<AnalysisResults> {
   // Extract skills (fallback method)
   const requiredSkills = extractSkillsFromDescription(jobDescription)
@@ -174,9 +176,176 @@ export async function generateAnalysis(
 
 // ── Mock applications (for initial load / testing) ──────────────────────────────
 export function generateMockApplications(): JobApplication[] {
-  // Keep your existing mock data array here
-  // For now returning empty or placeholder — replace with real mocks if needed
-  return []
+  const mockData = [
+    {
+      id: '1',
+      jobTitle: 'Senior Frontend Developer',
+      company: 'TechCorp Solutions',
+      location: 'San Francisco, CA',
+      status: 'Interview' as const,
+      channel: 'LinkedIn' as const,
+      applicationDate: new Date('2026-01-15'),
+      resumeName: 'resume_techcorp.pdf',
+      jobDescription: 'We are seeking a Senior Frontend Developer with expertise in React, TypeScript, Next.js, and modern web technologies. The ideal candidate will have 5+ years of experience building scalable web applications, strong knowledge of REST API integration, state management with Redux, and experience with Tailwind CSS. Knowledge of CI/CD pipelines and Docker is a plus.'
+    },
+    {
+      id: '2',
+      jobTitle: 'Full Stack Engineer',
+      company: 'StartupXYZ',
+      location: 'Remote',
+      status: 'Applied' as const,
+      channel: 'Company Portal' as const,
+      applicationDate: new Date('2026-01-12'),
+      resumeName: 'resume_startupxyz.pdf',
+      jobDescription: 'Looking for a Full Stack Engineer proficient in Node.js, Express, React, PostgreSQL, and AWS. You will be responsible for building and maintaining microservices, implementing REST APIs, and working with Docker and Kubernetes. Strong problem-solving skills and experience with Agile methodologies required.'
+    },
+    {
+      id: '3',
+      jobTitle: 'React Developer',
+      company: 'Digital Innovations Inc',
+      location: 'New York, NY',
+      status: 'Applied' as const,
+      channel: 'Email' as const,
+      applicationDate: new Date('2026-01-10'),
+      resumeName: 'resume_digital.pdf',
+      jobDescription: 'We need a React Developer with strong JavaScript and TypeScript skills. Experience with React hooks, Redux, and modern CSS frameworks like Tailwind CSS is essential. You should be comfortable with Git, unit testing, and working in an Agile Scrum environment.'
+    },
+    {
+      id: '4',
+      jobTitle: 'Software Engineer',
+      company: 'Enterprise Tech',
+      location: 'Austin, TX',
+      status: 'Rejected' as const,
+      channel: 'LinkedIn' as const,
+      applicationDate: new Date('2026-01-05'),
+      resumeName: 'resume_enterprise.pdf',
+      jobDescription: 'Enterprise Tech is hiring a Software Engineer with experience in Java, Spring Boot, microservices architecture, and cloud platforms (AWS or Azure). Strong understanding of SQL databases, REST APIs, and CI/CD pipelines is required. Experience with Docker and team collaboration skills are essential.'
+    },
+    {
+      id: '5',
+      jobTitle: 'Frontend Engineer',
+      company: 'CloudNine Systems',
+      location: 'Seattle, WA',
+      status: 'Applied' as const,
+      channel: 'Company Portal' as const,
+      applicationDate: new Date('2026-01-08'),
+      resumeName: 'resume_cloudnine.pdf',
+      jobDescription: 'Seeking a Frontend Engineer skilled in Vue.js, JavaScript, HTML, CSS, and modern frontend tooling. Experience with GraphQL, responsive design, and cross-browser compatibility is important. Good communication and team collaboration abilities are a must.'
+    },
+    {
+      id: '6',
+      jobTitle: 'Backend Developer',
+      company: 'DataFlow Analytics',
+      location: 'Boston, MA',
+      status: 'Applied' as const,
+      channel: 'Email' as const,
+      applicationDate: new Date('2026-01-14'),
+      resumeName: 'resume_dataflow.pdf',
+      jobDescription: 'DataFlow Analytics needs a Backend Developer with Python, Django, Flask experience. You will work with PostgreSQL, Redis, and build REST APIs. Knowledge of AWS, Docker, and microservices architecture is valuable. Strong problem-solving skills required.'
+    },
+    {
+      id: '7',
+      jobTitle: 'Lead Software Engineer',
+      company: 'FinTech Solutions',
+      location: 'Chicago, IL',
+      status: 'Interview' as const,
+      channel: 'LinkedIn' as const,
+      applicationDate: new Date('2026-01-11'),
+      resumeName: 'resume_fintech.pdf',
+      jobDescription: 'Lead Software Engineer position requiring expertise in Node.js, TypeScript, React, MongoDB, and AWS. Leadership experience, strong communication skills, and ability to mentor junior developers essential. Experience with TDD, Agile, and CI/CD pipelines required.'
+    },
+    {
+      id: '8',
+      jobTitle: 'DevOps Engineer',
+      company: 'Infrastructure Pro',
+      location: 'Denver, CO',
+      status: 'Applied' as const,
+      channel: 'Company Portal' as const,
+      applicationDate: new Date('2026-01-09'),
+      resumeName: 'resume_infrastructure.pdf',
+      jobDescription: 'DevOps Engineer role focused on AWS, Docker, Kubernetes, and CI/CD pipeline automation. Experience with infrastructure as code, monitoring tools, and scripting (Python or Bash) required. Strong problem-solving and team collaboration skills necessary.'
+    }
+  ];
+  
+  // Generate simple mock analysis for each (non-async fallback)
+  return mockData.map(app => ({
+    ...app,
+    analysis: generateSimpleAnalysis(app.jobDescription, app.resumeName)
+  }));
+}
+
+// Simple synchronous analysis for initial mock data
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function generateSimpleAnalysis(jobDescription: string, _resumeName: string): AnalysisResults {
+  const requiredSkills = extractSkillsFromDescription(jobDescription);
+  const matchPercentage = 0.6 + Math.random() * 0.3;
+  const matchCount = Math.floor(requiredSkills.length * matchPercentage);
+  
+  const shuffled = [...requiredSkills].sort(() => 0.5 - Math.random());
+  const matchedSkills = shuffled.slice(0, matchCount);
+  const missingSkillsList = shuffled.slice(matchCount);
+  
+  const missingSkills: SkillGap[] = missingSkillsList.map((skill, index) => ({
+    skill,
+    priority: index < missingSkillsList.length / 2 ? 'Required' as const : 'Nice-to-have' as const
+  }));
+  
+  const skillsMatch = requiredSkills.length > 0 
+    ? Math.round((matchedSkills.length / requiredSkills.length) * 100)
+    : 85;
+  
+  const experienceMatch = 70 + Math.floor(Math.random() * 25);
+  const languageLocationMatch = 85 + Math.floor(Math.random() * 15);
+  
+  const overallMatch = Math.round(
+    skillsMatch * 0.4 + 
+    experienceMatch * 0.3 + 
+    languageLocationMatch * 0.3
+  );
+  
+  const atsScore = 65 + Math.floor(Math.random() * 30);
+  
+  const atsIssues = [
+    { type: 'structure' as const, severity: 'medium' as const, message: 'Consider clearer section headings' },
+    { type: 'keyword' as const, severity: 'low' as const, message: 'More job-specific keywords would help' }
+  ];
+  
+  const suggestions: Suggestion[] = [
+    {
+      category: 'Summary' as const,
+      text: 'Tailor your professional summary to emphasize relevant experience and highlight key achievements',
+      priority: 'high' as const
+    },
+    {
+      category: 'Skills' as const,
+      text: 'Consider adding or highlighting missing skills if you have experience with them',
+      priority: 'high' as const
+    },
+    {
+      category: 'Format' as const,
+      text: 'Use a clean, single-column layout without tables for better ATS compatibility',
+      priority: 'medium' as const
+    },
+    {
+      category: 'Experience' as const,
+      text: 'Quantify achievements with metrics (e.g., "Increased efficiency by 30%")',
+      priority: 'medium' as const
+    }
+  ];
+  
+  return {
+    overallMatch,
+    subScores: {
+      skillsMatch,
+      experienceMatch,
+      languageLocationMatch
+    },
+    matchedSkills,
+    missingSkills,
+    atsScore,
+    atsIssues,
+    suggestions
+  };
 }
 
 // ── Create new application with analysis ───────────────────────────────────────

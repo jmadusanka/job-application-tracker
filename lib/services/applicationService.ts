@@ -30,7 +30,8 @@ export function getAllApplications(): JobApplication[] {
 }
 
 // Update application status
-export function updateApplicationStatus(id: string, status: string): boolean {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function updateApplicationStatus(_id: string, _status: string): boolean {
   // TODO: Implement actual storage
   return true;
 }

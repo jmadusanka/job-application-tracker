@@ -1,4 +1,4 @@
-import * as pdfParse from 'pdf-parse';
+import mammoth from 'mammoth';
 
 export interface ParsedResume {
   text: string;
@@ -9,6 +9,9 @@ export interface ParsedResume {
 // Parse PDF file
 export async function parsePDF(buffer: Buffer): Promise<string> {
   try {
+    // pdf-parse doesn't have ESM support, use dynamic import
+    const pdfParse = await import('pdf-parse');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data = await (pdfParse as any)(buffer);
     return data.text;
   } catch (error) {
@@ -17,10 +20,15 @@ export async function parsePDF(buffer: Buffer): Promise<string> {
   }
 }
 
-// Parse DOCX file (placeholder - basic implementation)
+// Parse DOCX file
 export async function parseDOCX(buffer: Buffer): Promise<string> {
-  // For POC, return a message. In production, install mammoth package
-  return 'DOCX parsing not fully implemented. Please use PDF for now.';
+  try {
+    const result = await mammoth.extractRawText({ buffer });
+    return result.value;
+  } catch (error) {
+    console.error('DOCX parsing error:', error);
+    throw new Error('Failed to parse DOCX file');
+  }
 }
 
 // Main parser function

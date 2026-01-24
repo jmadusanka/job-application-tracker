@@ -6,6 +6,7 @@ export async function GET() {
 }
 
 // POST new application
-export async function POST(request: NextRequest) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function POST(_request: NextRequest) {
   return NextResponse.json({ message: 'Create application endpoint' });
 }

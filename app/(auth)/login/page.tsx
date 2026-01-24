@@ -50,7 +50,7 @@ export default function LoginPage() {
       }
 
       router.push('/dashboard')
-    } catch (err: any) {
+    } catch (err) {
       console.error('[Login] Unexpected error:', err)
       setError('Something went wrong. Check console for details.')
     }
@@ -65,7 +65,7 @@ export default function LoginPage() {
       if (error) {
         setError(error.message)
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('[Google SignIn] Error:', err)
       setError('Google sign-in failed')
     }
