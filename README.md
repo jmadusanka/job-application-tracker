@@ -41,13 +41,6 @@ npm run dev
 http://localhost:3000
 ```
 
-### First-Time Login
-
-This is a demo application with simulated authentication. You can log in with **any email and password combination**:
-
-- Email: `demo@example.com` (or any email)
-- Password: `password` (or any password)
-
 ## 📁 Project Structure
 
 ```
@@ -69,10 +62,10 @@ job-application-tracker/
 │   ├── AuthContext.tsx         # Authentication state management
 │   └── ApplicationContext.tsx  # Application data management
 ├── lib/
-│   ├── types.ts                # TypeScript type definitions
-│   ├── mockData.ts             # Mock data generation
-│   └── utils.ts                # Utility functions
-└── copilot-instructions.md     # Development guidelines
+    ├── types.ts                # TypeScript type definitions
+    ├── mockData.ts             # Mock data generation
+    └── utils.ts                # Utility functions
+
 ```
 
 ## 🎨 Design System
@@ -99,7 +92,7 @@ job-application-tracker/
 Add new job applications with:
 - Job title and company
 - Location
-- Application channel (LinkedIn, Company Portal, Email)
+- Application channel (Company Portal, Email)
 - Status (Applied, Interview, Offer, Rejected)
 - Full job description
 - Resume reference
@@ -125,23 +118,13 @@ View comprehensive insights:
 
 ## 🔧 Tech Stack
 
-- **Framework**: Next.js 16.1.3 (App Router)
+- **Framework**: Next.js (App Router)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS 4
 - **Charts**: Recharts
 - **Icons**: Lucide React
 - **State Management**: React Context API
 
-## ⚠️ POC Limitations
-
-This is a **proof of concept** with the following limitations:
-
-- ❌ No real backend or database
-- ❌ No persistent storage (data resets on page reload)
-- ❌ No real AI/NLP analysis (all simulated)
-- ❌ No resume parsing from PDF/DOCX files
-- ❌ No real authentication (fake login)
-- ❌ No multi-user support
 
 ## 🎯 Use Cases
 
@@ -152,27 +135,6 @@ This POC demonstrates:
 3. **UI/UX Patterns**: Professional design patterns for business applications
 4. **Concept Validation**: Proof that the idea is viable and user-friendly
 
-## 🚦 Next Steps (Post-POC)
-
-If approved for full development:
-
-1. **Backend Development**
-   - REST API or GraphQL
-   - Database (PostgreSQL)
-   - Real authentication (JWT, OAuth)
-
-2. **AI Integration**
-   - Real NLP for skill extraction
-   - Resume parsing (PDF/DOCX)
-   - ATS compatibility checking
-   - LLM-powered suggestions
-
-3. **Additional Features**
-   - Email tracking
-   - Chrome extension for job scraping
-   - Calendar integration
-   - Analytics and reporting
-   - Export functionality
 
 ## 📝 Development
 
@@ -185,13 +147,6 @@ npm run start    # Start production server
 npm run lint     # Run ESLint
 ```
 
-### Adding Mock Applications
-
-Mock applications are generated in `lib/mockData.ts`. To modify:
-
-1. Edit the `generateMockApplications()` function
-2. Add more job descriptions with varied skills
-3. Adjust score calculation logic in `generateAnalysis()`
 
 ### Customizing UI
 
@@ -206,7 +161,3 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## 👥 Author
 
 Built as a proof of concept for demonstrating job application tracking and analytics functionality.
-
----
-
-**Note**: This is a demo application with simulated AI features. All analysis results are generated using mock logic and do not represent actual AI/ML predictions.
