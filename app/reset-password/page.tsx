@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 
 export default function ResetPasswordPage() {
@@ -27,8 +28,9 @@ export default function ResetPasswordPage() {
     }
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/login`, // Redirect after reset
+      redirectTo: `${window.location.origin}/update-password`, // ← Fixed: redirect to dedicated update page
     });
+
     if (error) {
       setError(error.message);
     } else {
@@ -39,10 +41,24 @@ export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">
+            Job Application Tracker
+          </h1>
+          <p className="text-slate-600">
+            Analytics & Feedback System
+          </p>
+          <div className="mt-2">
+            <Badge variant="warning">Demo Mode</Badge>
+          </div>
+        </div>
+
         <Card>
           <CardHeader>
             <CardTitle>Reset Password</CardTitle>
-            <CardDescription>Enter your email to receive a reset link</CardDescription>
+            <CardDescription>
+              Enter your email to receive a password reset link
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -68,7 +84,7 @@ export default function ResetPasswordPage() {
               {success && (
                 <div className="flex items-center text-sm text-green-600 bg-green-50 p-3 rounded-md">
                   <CheckCircle className="w-4 h-4 mr-2" />
-                  Reset link sent! Check your email.
+                  Reset link sent! Check your email (including spam folder).
                 </div>
               )}
 
