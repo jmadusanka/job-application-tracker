@@ -2,12 +2,13 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { JobApplication, NewApplicationInput } from '@/lib/types';
-import { generateMockApplications, createApplication } from '@/lib/mockData';
+import { generateMockApplications } from '@/lib/analysis'; // Renamed from mockData
+import { createApplication } from '@/lib/analysis'; // Updated to async
 
 interface ApplicationContextType {
   applications: JobApplication[];
   selectedApplicationId: string | null;
-  addApplication: (input: NewApplicationInput) => void;
+  addApplication: (input: NewApplicationInput) => Promise<void>; // Now async
   selectApplication: (id: string) => void;
   deleteApplication: (id: string) => void;
   selectedApplication: JobApplication | null;
@@ -29,8 +30,8 @@ export function ApplicationProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const addApplication = (input: NewApplicationInput) => {
-    const newApp = createApplication(input);
+  const addApplication = async (input: NewApplicationInput) => {
+    const newApp = await createApplication(input); // Await AI
     setApplications(prev => [newApp, ...prev]);
     // Auto-select the newly created application
     setSelectedApplicationId(newApp.id);
