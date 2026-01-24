@@ -8,7 +8,8 @@ import { createApplication } from '@/lib/analysis'; // Updated to async
 interface ApplicationContextType {
   applications: JobApplication[];
   selectedApplicationId: string | null;
-  addApplication: (input: NewApplicationInput) => Promise<void>; // Now async
+  addApplication: (input: NewApplicationInput) => void;
+  updateApplication: (id: string, updates: Partial<JobApplication>) => void;
   selectApplication: (id: string) => void;
   deleteApplication: (id: string) => void;
   selectedApplication: JobApplication | null;
@@ -20,19 +21,41 @@ export function ApplicationProvider({ children }: { children: ReactNode }) {
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [selectedApplicationId, setSelectedApplicationId] = useState<string | null>(null);
 
-  // Initialize with mock data
-  useEffect(() => {
+useEffect(() => {
+  // Try to load from localStorage first
+  const saved = localStorage.getItem('jobApplications');
+  
+  if (saved) {
+    // Parse and restore dates
+    const parsed = JSON.parse(saved);
+    const restoredApps = parsed.map((app: any) => ({
+      ...app,
+      applicationDate: new Date(app.applicationDate)
+    }));
+      queueMicrotask(() => {
+    setApplications(restoredApps);
+    if (restoredApps.length > 0) {
+      setSelectedApplicationId(restoredApps[0].id);
+    }
+      });
+  } else {
+    // First time - use mock data
     const mockApps = generateMockApplications();
     setApplications(mockApps);
-    // Auto-select first application
+    localStorage.setItem('jobApplications', JSON.stringify(mockApps));
     if (mockApps.length > 0) {
       setSelectedApplicationId(mockApps[0].id);
     }
-  }, []);
+  }
+}, []);
 
-  const addApplication = async (input: NewApplicationInput) => {
-    const newApp = await createApplication(input); // Await AI
-    setApplications(prev => [newApp, ...prev]);
+  const addApplication = (input: NewApplicationInput) => {
+    const newApp = createApplication(input);
+    setApplications(prev => {
+      const updated = [newApp, ...prev];
+      localStorage.setItem('jobApplications', JSON.stringify(updated));
+      return updated;
+    });
     // Auto-select the newly created application
     setSelectedApplicationId(newApp.id);
   };
@@ -41,8 +64,22 @@ export function ApplicationProvider({ children }: { children: ReactNode }) {
     setSelectedApplicationId(id);
   };
 
+  const updateApplication = (id: string, updates: Partial<JobApplication>) => {
+    setApplications(prev => {
+      const updated = prev.map(app => 
+        app.id === id ? { ...app, ...updates } : app
+      );
+      localStorage.setItem('jobApplications', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   const deleteApplication = (id: string) => {
-    setApplications(prev => prev.filter(app => app.id !== id));
+    setApplications(prev => {
+      const updated = prev.filter(app => app.id !== id);
+      localStorage.setItem('jobApplications', JSON.stringify(updated));
+      return updated;
+    });
     if (selectedApplicationId === id) {
       setSelectedApplicationId(null);
     }
@@ -56,6 +93,7 @@ export function ApplicationProvider({ children }: { children: ReactNode }) {
         applications,
         selectedApplicationId,
         addApplication,
+        updateApplication,
         selectApplication,
         deleteApplication,
         selectedApplication

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabase } from '@/context/SupabaseProvider';
 import { useApplications } from '@/context/ApplicationContext';
@@ -19,6 +19,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { session } = useSupabase();
   const { selectedApplication } = useApplications();
+  const [showJobDescription, setShowJobDescription] = useState(false);
 
   useEffect(() => {
     if (!session) {
@@ -47,12 +48,37 @@ export default function DashboardPage() {
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h2 className="text-xl font-bold text-slate-900 mb-1">{selectedApplication.jobTitle}</h2>
-                      <p className="text-sm text-slate-600">{selectedApplication.company} - {selectedApplication.location}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-slate-500">Applied on {selectedApplication.applicationDate.toLocaleDateString()}</p>
-                      <p className="text-sm text-slate-500">Via {selectedApplication.channel}</p>
+                      <h2 className="text-2xl font-bold text-slate-900 mb-1">
+                        {selectedApplication.jobTitle}
+                      </h2>
+                      <p className="text-lg text-slate-600 mb-2">
+                        {selectedApplication.company}
+                      </p>
+                      <div className="flex items-center gap-4 text-xs text-slate-500">
+                        <span>📍 {selectedApplication.location}</span>
+                        <span>📅 Applied {selectedApplication.applicationDate.toLocaleDateString()}</span>
+                        <span>
+                          📄 <a 
+                            href={`/uploads/resumes/${selectedApplication.resumeName}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline"
+                            title={selectedApplication.resumeName}
+                          >
+                            {selectedApplication.resumeName.length > 25 
+                              ? selectedApplication.resumeName.substring(0, 25) + '...' 
+                              : selectedApplication.resumeName}
+                          </a>
+                        </span>
+                        <span>
+                          📋 <button
+                            onClick={() => setShowJobDescription(true)}
+                            className="text-blue-600 hover:underline"
+                          >
+                            Job Description
+                          </button>
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -97,6 +123,28 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Job Description Modal */}
+      {showJobDescription && selectedApplication && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowJobDescription(false)}>
+          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-semibold">Job Description</h3>
+              <button
+                onClick={() => setShowJobDescription(false)}
+                className="text-slate-500 hover:text-slate-700 text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[calc(80vh-80px)]">
+              <pre className="whitespace-pre-wrap text-sm text-slate-700 font-sans">
+                {selectedApplication.jobDescription}
+              </pre>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

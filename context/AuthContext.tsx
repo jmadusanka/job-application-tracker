@@ -20,8 +20,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
+        queueMicrotask(() => {
       setUser(JSON.parse(storedUser));
       setIsAuthenticated(true);
+        });
     }
   }, []);
 
