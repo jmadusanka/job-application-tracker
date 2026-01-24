@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
+import { useSupabase } from '@/context/SupabaseProvider';
 import { useApplications } from '@/context/ApplicationContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ApplicationList } from '@/components/applications/ApplicationList';
@@ -11,22 +11,23 @@ import { SubScores } from '@/components/analytics/SubScores';
 import { SkillsAnalysis } from '@/components/analytics/SkillsAnalysis';
 import { ATSCompatibility } from '@/components/analytics/ATSCompatibility';
 import { ImprovementSuggestions } from '@/components/analytics/ImprovementSuggestions';
+import { SuitabilityEngine } from '@/components/analytics/SuitabilityEngine';
 import { Card, CardContent } from '@/components/ui/card';
 import { FileSearch } from 'lucide-react';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { session } = useSupabase();
   const { selectedApplication } = useApplications();
   const [showJobDescription, setShowJobDescription] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!session) {
       router.push('/login');
     }
-  }, [isAuthenticated, router]);
+  }, [session, router]);
 
-  if (!isAuthenticated) {
+  if (!session) {
     return null;
   }
 
@@ -88,6 +89,9 @@ export default function DashboardPage() {
 
               {/* Sub-Scores */}
               <SubScores subScores={selectedApplication.analysis.subScores} />
+
+              {/* Suitability Engine */}
+              <SuitabilityEngine />
 
               {/* Skills Analysis */}
               <SkillsAnalysis

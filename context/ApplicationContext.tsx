@@ -2,7 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { JobApplication, NewApplicationInput } from '@/lib/types';
-import { generateMockApplications, createApplication } from '@/lib/mockData';
+import { generateMockApplications } from '@/lib/analysis'; // Renamed from mockData
+import { createApplication } from '@/lib/analysis'; // Updated to async
 
 interface ApplicationContextType {
   applications: JobApplication[];

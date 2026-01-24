@@ -1,0 +1,17 @@
+{
+  "candidateName": "Sample Candidate",
+  "source": "Extracted from CV",
+  "keywords": [
+    "JavaScript",
+    "TypeScript",
+    "React",
+    "Next.js",
+    "Node.js",
+    "REST API",
+    "Git",
+    "Tailwind CSS",
+    "Unit Testing",
+    "AWS",
+    "Docker"
+  ]
+}
