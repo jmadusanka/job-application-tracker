@@ -31,10 +31,12 @@ useEffect(() => {
       ...app,
       applicationDate: new Date(app.applicationDate)
     }));
+      queueMicrotask(() => {
     setApplications(restoredApps);
     if (restoredApps.length > 0) {
       setSelectedApplicationId(restoredApps[0].id);
     }
+      });
   } else {
     // First time - use mock data
     const mockApps = generateMockApplications();
