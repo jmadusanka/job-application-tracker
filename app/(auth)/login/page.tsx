@@ -1,24 +1,25 @@
-// app/(auth)/login/page.tsx
 'use client'
 
 import { useState, FormEvent, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useSupabase } from '@/context/SupabaseProvider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, CheckCircle } from 'lucide-react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { supabase } = useSupabase()
 
-  // Debug: check if client is really working
+  const message = searchParams.get('message')
+
   useEffect(() => {
     console.log('[LoginPage] Supabase client available:', !!supabase)
     if (supabase) {
@@ -92,6 +93,22 @@ export default function LoginPage() {
             <CardDescription>Enter your credentials to access your dashboard</CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Success after password update */}
+            {message === 'password-updated' && (
+              <div className="flex items-center text-sm text-green-600 bg-green-50 p-3 rounded-md mb-4">
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Password updated successfully! Please log in with your new password.
+              </div>
+            )}
+
+            {/* Expired/invalid reset link */}
+            {message === 'reset-link-expired' && (
+              <div className="flex items-center text-sm text-red-600 bg-red-50 p-3 rounded-md mb-4">
+                <AlertCircle className="w-4 h-4 mr-2" />
+                Reset link expired or invalid. Please request a new one.
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
