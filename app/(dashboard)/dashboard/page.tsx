@@ -58,15 +58,15 @@ export default function DashboardPage() {
                         <span>📍 {selectedApplication.location}</span>
                         <span>📅 Applied {selectedApplication.applicationDate.toLocaleDateString()}</span>
                         <span>
-                          📄 <a 
+                          📄 <a
                             href={`/uploads/resumes/${selectedApplication.resumeName}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-blue-600 hover:underline"
                             title={selectedApplication.resumeName}
                           >
-                            {selectedApplication.resumeName.length > 25 
-                              ? selectedApplication.resumeName.substring(0, 25) + '...' 
+                            {selectedApplication.resumeName.length > 25
+                              ? selectedApplication.resumeName.substring(0, 25) + '...'
                               : selectedApplication.resumeName}
                           </a>
                         </span>
@@ -97,6 +97,8 @@ export default function DashboardPage() {
               <SkillsAnalysis
                 matchedSkills={selectedApplication.analysis.matchedSkills}
                 missingSkills={selectedApplication.analysis.missingSkills}
+                jdKeywords={selectedApplication.analysis.jdKeywords}
+                cvKeywords={selectedApplication.analysis.cvKeywords}
               />
 
               {/* ATS Compatibility */}

@@ -5,29 +5,29 @@ export function analyzeATS(resumeText: string, jobDescription: string): Analysis
   // Extract skills from job description
   const requiredSkills = extractSkills(jobDescription);
   const resumeSkills = extractSkills(resumeText);
-  
+
   // Calculate matches
-  const matchedSkills = requiredSkills.filter(skill => 
+  const matchedSkills = requiredSkills.filter(skill =>
     resumeSkills.some(rs => rs.toLowerCase() === skill.toLowerCase())
   );
-  
+
   const missingSkills: SkillGap[] = requiredSkills
     .filter(skill => !matchedSkills.includes(skill))
     .map(skill => ({ skill, priority: 'Required' as const }));
-  
+
   // Calculate scores
-  const skillsMatch = requiredSkills.length > 0 
+  const skillsMatch = requiredSkills.length > 0
     ? Math.round((matchedSkills.length / requiredSkills.length) * 100)
     : 0;
-  
+
   const experienceMatch = 75; // Placeholder
   const languageLocationMatch = 80; // Placeholder
   const overallMatch = Math.round((skillsMatch + experienceMatch + languageLocationMatch) / 3);
-  
+
   // ATS issues
   const atsIssues = detectATSIssues(resumeText);
   const atsScore = Math.max(0, 100 - (atsIssues.length * 10));
-  
+
   return {
     overallMatch,
     subScores: {
@@ -39,7 +39,9 @@ export function analyzeATS(resumeText: string, jobDescription: string): Analysis
     missingSkills,
     atsScore,
     atsIssues,
-    suggestions: generateSuggestions(missingSkills, atsIssues)
+    suggestions: generateSuggestions(missingSkills, atsIssues),
+    jdKeywords: [],
+    cvKeywords: []
   };
 }
 
@@ -50,8 +52,8 @@ function extractSkills(text: string): string[] {
     'SQL', 'Git', 'AWS', 'Docker', 'API', 'REST', 'GraphQL',
     'HTML', 'CSS', 'MongoDB', 'PostgreSQL', 'Express', 'Next.js'
   ];
-  
-  return commonSkills.filter(skill => 
+
+  return commonSkills.filter(skill =>
     text.toLowerCase().includes(skill.toLowerCase())
   );
 }
@@ -59,7 +61,7 @@ function extractSkills(text: string): string[] {
 // Detect ATS compatibility issues
 function detectATSIssues(resumeText: string): ATSIssue[] {
   const issues: ATSIssue[] = [];
-  
+
   if (resumeText.length < 100) {
     issues.push({
       type: 'structure',
@@ -67,7 +69,7 @@ function detectATSIssues(resumeText: string): ATSIssue[] {
       message: 'Resume text is too short'
     });
   }
-  
+
   // Check for common ATS problems
   if (!/email|@/.test(resumeText.toLowerCase())) {
     issues.push({
@@ -76,14 +78,14 @@ function detectATSIssues(resumeText: string): ATSIssue[] {
       message: 'No email address found'
     });
   }
-  
+
   return issues;
 }
 
 // Generate improvement suggestions
 function generateSuggestions(missingSkills: SkillGap[], issues: ATSIssue[]) {
   const suggestions = [];
-  
+
   if (missingSkills.length > 0) {
     suggestions.push({
       category: 'Skills' as const,
@@ -91,7 +93,7 @@ function generateSuggestions(missingSkills: SkillGap[], issues: ATSIssue[]) {
       priority: 'high' as const
     });
   }
-  
+
   if (issues.length > 0) {
     suggestions.push({
       category: 'Format' as const,
@@ -99,6 +101,6 @@ function generateSuggestions(missingSkills: SkillGap[], issues: ATSIssue[]) {
       priority: 'high' as const
     });
   }
-  
+
   return suggestions;
 }

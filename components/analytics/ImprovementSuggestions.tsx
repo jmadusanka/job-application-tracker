@@ -13,21 +13,21 @@ export function ImprovementSuggestions({ suggestions }: ImprovementSuggestionsPr
   // ── Helpers ────────────────────────────────────────────────────────────────
   const getCategoryIcon = (category: SuggestionCategory) => {
     switch (category) {
-      case 'Summary':    return '📝'
+      case 'Summary': return '📝'
       case 'Experience': return '💼'
-      case 'Skills':     return '🎯'
-      case 'Format':     return '📄'
-      default:           return '💡'
+      case 'Skills': return '🎯'
+      case 'Format': return '📄'
+      default: return '💡'
     }
   }
 
   const getCategoryColor = (category: SuggestionCategory) => {
     switch (category) {
-      case 'Summary':    return 'bg-blue-50 border-blue-200 hover:bg-blue-100'
+      case 'Summary': return 'bg-blue-50 border-blue-200 hover:bg-blue-100'
       case 'Experience': return 'bg-purple-50 border-purple-200 hover:bg-purple-100'
-      case 'Skills':     return 'bg-green-50 border-green-200 hover:bg-green-100'
-      case 'Format':     return 'bg-amber-50 border-amber-200 hover:bg-amber-100'
-      default:           return 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+      case 'Skills': return 'bg-green-50 border-green-200 hover:bg-green-100'
+      case 'Format': return 'bg-amber-50 border-amber-200 hover:bg-amber-100'
+      default: return 'bg-slate-50 border-slate-200 hover:bg-slate-100'
     }
   }
 
@@ -73,11 +73,18 @@ export function ImprovementSuggestions({ suggestions }: ImprovementSuggestionsPr
   return (
     <Card className="border-slate-200 shadow-sm">
       <CardHeader className="pb-3">
-        <div className="flex items-center gap-2.5">
-          <Sparkles className="w-5 h-5 text-amber-600" />
-          <CardTitle className="text-lg font-semibold">
-            Resume Improvement Suggestions
-          </CardTitle>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <Sparkles className="w-5 h-5 text-amber-600" />
+            <CardTitle className="text-lg font-semibold">
+              Resume Improvement Suggestions
+            </CardTitle>
+          </div>
+          {suggestions.length > 0 && (
+            <Badge variant="success" className="text-[10px] animate-pulse">
+              AI ANALYSIS COMPLETED
+            </Badge>
+          )}
         </div>
       </CardHeader>
 
@@ -115,8 +122,8 @@ export function ImprovementSuggestions({ suggestions }: ImprovementSuggestionsPr
                         <div className="flex items-start justify-between gap-3 mb-2">
                           <div className="flex items-center gap-2">
                             {icon}
-                            <Badge 
-                              variant={variant} 
+                            <Badge
+                              variant={variant}
                               className="text-xs font-medium px-2.5 py-0.5"
                             >
                               {label}
