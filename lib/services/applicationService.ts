@@ -17,10 +17,12 @@ export function saveApplication(input: NewApplicationInput): JobApplication {
       missingSkills: [],
       atsScore: 0,
       atsIssues: [],
-      suggestions: []
+      suggestions: [],
+      jdKeywords: [],
+      cvKeywords: []
     }
   };
-  
+
   return newApp;
 }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
+import { parseResume } from '@/lib/parsers/resumeParser';
 
 // POST resume upload
 export async function POST(request: NextRequest) {
@@ -17,10 +18,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate file type
-    const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    const validTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
     if (!validTypes.includes(file.type)) {
       return NextResponse.json(
-        { error: 'Invalid file type. Only PDF and DOC files are allowed' },
+        { error: 'Invalid file type. Only PDF and DOCX files are allowed' },
         { status: 400 }
       );
     }
@@ -31,6 +32,17 @@ export async function POST(request: NextRequest) {
         { error: 'File size must be less than 5MB' },
         { status: 400 }
       );
+    }
+
+    // const data = await request.formData(); // Removed unused variable
+
+    // Extract text from resume
+    let extractedText = '';
+    try {
+      const parsedResume = await parseResume(file);
+      extractedText = parsedResume.text;
+    } catch (parseError) {
+      console.error('[Upload API] Resume parsing error:', parseError);
     }
 
     // Create uploads directory if it doesn't exist
@@ -54,7 +66,8 @@ export async function POST(request: NextRequest) {
       filename,
       path: `/uploads/resumes/${filename}`,
       size: file.size,
-      type: file.type
+      type: file.type,
+      extractedText // Return the extracted text to the client
     });
 
   } catch (error) {

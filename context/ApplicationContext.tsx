@@ -20,33 +20,34 @@ export function ApplicationProvider({ children }: { children: ReactNode }) {
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [selectedApplicationId, setSelectedApplicationId] = useState<string | null>(null);
 
-useEffect(() => {
-  // Try to load from localStorage first
-  const saved = localStorage.getItem('jobApplications');
-  
-  if (saved) {
-    // Parse and restore dates
-    const parsed = JSON.parse(saved);
-    const restoredApps = parsed.map((app: any) => ({
-      ...app,
-      applicationDate: new Date(app.applicationDate)
-    }));
+  useEffect(() => {
+    // Try to load from localStorage first
+    const saved = localStorage.getItem('jobApplications');
+
+    if (saved) {
+      // Parse and restore dates
+      const parsed = JSON.parse(saved);
+      const restoredApps = parsed.map((app: any) => ({
+        ...app,
+        applicationDate: new Date(app.applicationDate),
+        resumeText: app.resumeText || ''
+      }));
       queueMicrotask(() => {
-    setApplications(restoredApps);
-    if (restoredApps.length > 0) {
-      setSelectedApplicationId(restoredApps[0].id);
-    }
+        setApplications(restoredApps);
+        if (restoredApps.length > 0) {
+          setSelectedApplicationId(restoredApps[0].id);
+        }
       });
-  } else {
-    // First time - use mock data
-    const mockApps = generateMockApplications();
-    setApplications(mockApps);
-    localStorage.setItem('jobApplications', JSON.stringify(mockApps));
-    if (mockApps.length > 0) {
-      setSelectedApplicationId(mockApps[0].id);
+    } else {
+      // First time - use mock data
+      const mockApps = generateMockApplications();
+      setApplications(mockApps);
+      localStorage.setItem('jobApplications', JSON.stringify(mockApps));
+      if (mockApps.length > 0) {
+        setSelectedApplicationId(mockApps[0].id);
+      }
     }
-  }
-}, []);
+  }, []);
 
   const addApplication = async (input: NewApplicationInput) => {
     const newApp = await createApplication(input);
@@ -65,7 +66,7 @@ useEffect(() => {
 
   const updateApplication = (id: string, updates: Partial<JobApplication>) => {
     setApplications(prev => {
-      const updated = prev.map(app => 
+      const updated = prev.map(app =>
         app.id === id ? { ...app, ...updates } : app
       );
       localStorage.setItem('jobApplications', JSON.stringify(updated));

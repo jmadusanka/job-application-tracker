@@ -3,7 +3,7 @@
 export type ApplicationStatus = 'Analyzed' | 'Applied' | 'Interview' | 'Offer' | 'Rejected';
 export type ApplicationChannel = 'Email' | 'Company Portal' | 'LinkedIn';
 export type SkillPriority = 'Required' | 'Nice-to-have';
-export type ATSIssueType = 'structure' | 'keyword';
+export type ATSIssueType = 'structure' | 'keyword' | 'formatting';
 export type Severity = 'low' | 'medium' | 'high';
 export type SuggestionCategory = 'Summary' | 'Experience' | 'Skills' | 'Format';
 export type SuggestionPriority = 'high' | 'medium' | 'low';
@@ -37,6 +37,22 @@ export interface AnalysisResults {
   atsScore: number; // 0-100
   atsIssues: ATSIssue[];
   suggestions: Suggestion[];
+  jdKeywords: string[];
+  cvKeywords: string[];
+  extractedProfile?: {
+    personalInfo?: {
+      name?: string;
+      email?: string;
+      phone?: string;
+      location?: string;
+      linkedin?: string;
+      portfolio?: string;
+    };
+    summary?: string;
+      education?: unknown[];
+      experience?: unknown[];
+    skills?: string[];
+  };
 }
 
 export interface JobApplication {
@@ -49,6 +65,7 @@ export interface JobApplication {
   applicationDate: Date;
   jobDescription: string;
   resumeName: string;
+  resumeText: string;
   analysis: AnalysisResults;
 }
 
@@ -60,6 +77,7 @@ export interface NewApplicationInput {
   channel: ApplicationChannel;
   jobDescription: string;
   resumeName: string;
+  resumeText: string;
 }
 
 export interface User {

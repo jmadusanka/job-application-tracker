@@ -9,25 +9,43 @@ export interface ParsedResume {
 // Parse PDF file
 export async function parsePDF(buffer: Buffer): Promise<string> {
   try {
-    // pdf-parse doesn't have ESM support, use dynamic import
-    const pdfParse = await import('pdf-parse');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data = await (pdfParse as any)(buffer);
-    return data.text;
+    console.log('[parsePDF] Starting extraction with pdfreader. Buffer size:', buffer.length);
+
+    // Dynamic import to avoid issues
+    const { PdfReader } = await import('pdfreader');
+
+    return new Promise((resolve, reject) => {
+      let text = '';
+      new PdfReader().parseBuffer(buffer, (err: unknown, item: unknown) => {
+        if (err) {
+          console.error('[parsePDF] Error during parsing:', err);
+          reject(err);
+        } else if (!item) {
+          // End of file
+          console.log('[parsePDF] Extraction successful. Total length:', text.length);
+          resolve(text);
+        } else if (typeof item === 'object' && item && 'text' in item) {
+          // Accumulate text
+          text += (item as { text: string }).text + ' ';
+        }
+      });
+    });
   } catch (error) {
-    console.error('PDF parsing error:', error);
-    throw new Error('Failed to parse PDF file');
+    console.error('[parsePDF] Critical Error:', error);
+    return ''; // Return empty instead of throwing
   }
 }
 
 // Parse DOCX file
 export async function parseDOCX(buffer: Buffer): Promise<string> {
   try {
+    console.log('[parseDOCX] Starting extraction. Buffer size:', buffer.length);
     const result = await mammoth.extractRawText({ buffer });
+    console.log('[parseDOCX] Extraction successful. Text length:', result.value.length);
     return result.value;
   } catch (error) {
-    console.error('DOCX parsing error:', error);
-    throw new Error('Failed to parse DOCX file');
+    console.error('[parseDOCX] Error:', error);
+    return '';
   }
 }
 
@@ -35,17 +53,25 @@ export async function parseDOCX(buffer: Buffer): Promise<string> {
 export async function parseResume(file: File): Promise<ParsedResume> {
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
-  
+
   let text = '';
-  
-  if (file.type === 'application/pdf') {
+  const fileType = file.type.toLowerCase();
+  const fileName = file.name.toLowerCase();
+
+  console.log('[parseResume] Processing file:', file.name, 'Type:', file.type);
+
+  if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
     text = await parsePDF(buffer);
-  } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+  } else if (
+    fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    fileName.endsWith('.docx')
+  ) {
     text = await parseDOCX(buffer);
   } else {
-    throw new Error('Unsupported file type');
+    console.warn('[parseResume] Unsupported file type:', file.type);
+    throw new Error('Unsupported file type. Please upload a PDF or DOCX.');
   }
-  
+
   return {
     text,
     fileName: file.name,

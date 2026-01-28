@@ -50,31 +50,32 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.jobTitle || !formData.company || !formData.location || !formData.jobDescription) {
       alert('Please fill in all required fields');
       return;
     }
 
     // Upload resume if file selected
+    let extractedText = '';
     if (selectedFile) {
       setUploading(true);
       try {
         const formDataUpload = new FormData();
         formDataUpload.append('file', selectedFile);
-        
+
         const response = await fetch('/api/resume/upload', {
           method: 'POST',
           body: formDataUpload,
         });
-        
+
         if (!response.ok) {
           throw new Error('Failed to upload resume');
         }
-        
+
         const result = await response.json();
-        // Update form data with uploaded file info
         formData.resumeName = result.filename;
+        extractedText = result.extractedText || '';
       } catch (error) {
         console.error('Upload error:', error);
         alert('Failed to upload resume. Please try again.');
@@ -84,7 +85,10 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
       setUploading(false);
     }
 
-    addApplication(formData as NewApplicationInput);
+    addApplication({
+      ...formData as NewApplicationInput,
+      resumeText: extractedText
+    });
     onClose();
   };
 
@@ -194,9 +198,9 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
                   placeholder="No file selected"
                   className="flex-1"
                 />
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   size="sm"
                   onClick={() => document.getElementById('fileInput')?.click()}
                 >

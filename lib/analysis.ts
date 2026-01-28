@@ -1,359 +1,159 @@
-// lib/analysis.ts
-import { JobApplication, AnalysisResults, NewApplicationInput, Suggestion, SkillGap } from './types'
-import { model } from './gemini' // Gemini model
+import { model } from './gemini';
+import {
+  JobApplication,
+  NewApplicationInput,
+  AnalysisResults,
+  // SkillGap,
+  // ATSIssue,
+  // Suggestion
+} from './types';
 
-// ── Common tech skills for fallback extraction (semi-mock) ────────────────────────
-const TECH_SKILLS = [
-  'JavaScript', 'TypeScript', 'Python', 'Java', 'React', 'Node.js', 'Angular',
-  'Vue.js', 'Next.js', 'Express', 'Django', 'Flask', 'Spring Boot', 'Docker',
-  'Kubernetes', 'AWS', 'Azure', 'GCP', 'Git', 'CI/CD', 'REST API', 'GraphQL',
-  'MongoDB', 'PostgreSQL', 'MySQL', 'Redis', 'Microservices', 'Agile', 'Scrum',
-  'TDD', 'Unit Testing', 'HTML', 'CSS', 'Tailwind CSS', 'Redux', 'SQL',
-  'Communication', 'Leadership', 'Problem Solving', 'Team Collaboration'
-]
-
-// ── Extract skills from job description (fallback when no AI) ────────────────────
-export function extractSkillsFromDescription(description: string): string[] {
-  const descriptionLower = description.toLowerCase()
-  return TECH_SKILLS.filter(skill =>
-    descriptionLower.includes(skill.toLowerCase())
-  )
-}
-
-// ── Generate real AI suggestions using Gemini ────────────────────────────────────
-async function generateAISuggestions(
-  jobDescription: string,
-  resumeContent: string
-): Promise<Suggestion[]> {
-  const prompt = `
-You are an expert resume writer and career coach.
-Analyze this job description and the candidate's resume content (or summary).
-
-Job Title: (inferred from context)
-Job Description:
-${jobDescription.substring(0, 3500)} ${jobDescription.length > 3500 ? '...' : ''}
-
-Resume Content / Summary:
-${resumeContent || 'Resume content not yet parsed (placeholder - filename or summary will be used)'}
-
-Generate **exactly 4 to 6** highly specific, actionable resume improvement suggestions.
-Focus on:
-- Missing critical keywords from the job description
-- Weak professional summary
-- Experience bullets lacking impact or quantification
-- Skills gaps (technical & soft)
-- ATS/formatting issues
-
-For each suggestion return:
-- category: one of "Summary", "Experience", "Skills", "Format"
-- text: 1-2 clear, professional sentences (actionable advice)
-- priority: "high", "medium", or "low"
-
-Output **only** valid JSON — an array of objects. No extra text, no markdown, no explanation.
-Example output:
-[
-  {"category": "Skills", "text": "Add 'Next.js' and 'TypeScript' to your skills section — they appear 12 times in the JD.", "priority": "high"},
-  {"category": "Experience", "text": "Quantify achievements: change 'improved performance' to 'improved performance by 40%'.", "priority": "medium"}
-]
-`
-
-  try {
-    const result = await model.generateContent(prompt)
-    const responseText = result.response.text().trim()
-
-    // Clean possible code fences or extra whitespace
-    const cleaned = responseText
-      .replace(/^```json\s*/i, '')
-      .replace(/\s*```$/i, '')
-      .trim()
-
-    const parsed = JSON.parse(cleaned)
-
-    if (!Array.isArray(parsed)) {
-      throw new Error('Gemini did not return an array')
-    }
-
-    // Basic validation
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return parsed.filter((item: any) =>
-      item &&
-      typeof item === 'object' &&
-      ['Summary', 'Experience', 'Skills', 'Format'].includes(item.category) &&
-      typeof item.text === 'string' &&
-      ['high', 'medium', 'low'].includes(item.priority?.toLowerCase())
-    ) as Suggestion[]
-  } catch (err) {
-    console.error('[generateAISuggestions] Error:', err)
-    // Fallback mock suggestions when Gemini fails
-    return [
-      {
-        category: 'Skills',
-        text: 'Include key technologies mentioned in the JD (e.g., React, TypeScript, AWS) in your skills section.',
-        priority: 'high'
-      },
-      {
-        category: 'Summary',
-        text: 'Rewrite your professional summary to directly target this role and highlight 2-3 strongest matching experiences.',
-        priority: 'high'
-      },
-      {
-        category: 'Experience',
-        text: 'Use strong action verbs and add metrics wherever possible (e.g., "increased conversion by 35%").',
-        priority: 'medium'
-      },
-      {
-        category: 'Format',
-        text: 'Ensure consistent formatting, bullet alignment, and ATS-friendly fonts (Arial/Calibri, 10-12pt).',
-        priority: 'medium'
-      },
-      {
-        category: 'Skills',
-        text: 'Add soft skills like "Agile methodologies" or "Cross-functional collaboration" if relevant.',
-        priority: 'low'
-      }
-    ]
-  }
-}
-
-// ── Main analysis generator ──────────────────────────────────────────────────────
+// ── Unified Analysis Prompt ──────────────────────────────────────────────────────
 export async function generateAnalysis(
   jobDescription: string,
   resumeName: string,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _jobTitle: string  // Prefixed with _ to indicate intentionally unused
+  resumeText: string,
+  jobTitle: string
 ): Promise<AnalysisResults> {
-  // Extract skills (fallback method)
-  const requiredSkills = extractSkillsFromDescription(jobDescription)
+  const resumeContent = resumeText || resumeName || 'No resume content available';
 
-  // Simulate resume skill match (60–95%)
-  const matchRatio = 0.6 + Math.random() * 0.35
-  const matchCount = Math.floor(requiredSkills.length * matchRatio)
-  const matchedSkills = requiredSkills.slice(0, matchCount)
+  const prompt = `
+Act as a professional Recruiter and ATS (Applicant Tracking System) Expert.
 
-  // Fixed: use literal types that match SkillPriority union
-  const missingSkills: SkillGap[] = requiredSkills.slice(matchCount).map(skill => ({
-    skill,
-    priority: Math.random() > 0.4 
-      ? 'Required' as const 
-      : 'Nice-to-have' as const
-  }))
+Analyze the provided Job Description (JD) and the Candidate's Resume Content.
 
-  // Simulated scores (will be replaced/improved later)
-  const overallMatch = Math.floor(55 + Math.random() * 45) // 55–100
-  const subScores = {
-    skillsMatch: Math.floor(50 + Math.random() * 50),
-    experienceMatch: Math.floor(50 + Math.random() * 50),
-    languageLocationMatch: Math.floor(60 + Math.random() * 40)
-  }
+Job Title:
+${jobTitle}
 
-  // Simulated ATS
-  const atsScore = Math.floor(60 + Math.random() * 40)
-  const atsIssues = [
-    { type: 'structure' as const, severity: 'medium' as const, message: 'Consider clearer section headings' },
-    { type: 'keyword' as const, severity: 'low' as const, message: 'More job-specific keywords would help' }
-  ]
+Job Description:
+${jobDescription.substring(0, 4000)}
 
-  // ── Resume content for AI ──────────────────────────────────────────────────
-  // In real version: parse uploaded PDF/docx here (Manjula's part)
-  // For now: use filename or placeholder
-  const resumeContentForAI = resumeName.includes('.pdf')
-    ? `Resume filename: ${resumeName}. Experienced developer with frontend focus.`
-    : resumeName || 'No resume content available yet (upload simulation)'
+Resume Content:
+${resumeContent.substring(0, 4000)}
 
-  // ── Get real or fallback suggestions ───────────────────────────────────────
-  const suggestions = await generateAISuggestions(jobDescription, resumeContentForAI)
+TASK:
+Perform an ATS-style semantic analysis focused ONLY on:
+- Role-specific skills
+- Technical competencies
+- Tools & software
+- Domain-specific responsibilities
 
-  return {
-    overallMatch,
-    subScores,
-    matchedSkills,
-    missingSkills,
-    atsScore,
-    atsIssues,
-    suggestions
+DO NOT extract:
+- Section labels
+- Generic HR terms
+- Soft or vague words
+
+FORBIDDEN KEYWORDS (must NOT appear in output):
+role, responsibilities, requirements, experience, education, skills, growth, performance, teamwork, communication skills, leadership
+
+OUTPUT RULES:
+- Return ONLY a valid JSON object
+- No markdown
+- No explanations
+- No extra text
+
+Return JSON with EXACTLY this structure:
+
+{
+  "jdKeywords": string[],
+  "cvKeywords": string[],
+  "suggestions": [
+    {
+      "category": "Summary" | "Experience" | "Skills" | "Format",
+      "text": string,
+      "priority": "high" | "medium" | "low"
+    }
+  ],
+  "extractedProfile": {
+    "personalInfo": {
+      "name": string,
+      "email": string,
+      "phone": string,
+      "location": string,
+      "linkedin": string,
+      "portfolio": string
+    },
+    "summary": string,
+    "skills": string[]
   }
 }
 
-// ── Mock applications (for initial load / testing) ──────────────────────────────
-export function generateMockApplications(): JobApplication[] {
-  const mockData = [
-    {
-      id: '1',
-      jobTitle: 'Senior Frontend Developer',
-      company: 'TechCorp Solutions',
-      location: 'San Francisco, CA',
-      status: 'Interview' as const,
-      channel: 'LinkedIn' as const,
-      applicationDate: new Date('2026-01-15'),
-      resumeName: 'resume_techcorp.pdf',
-      jobDescription: 'We are seeking a Senior Frontend Developer with expertise in React, TypeScript, Next.js, and modern web technologies. The ideal candidate will have 5+ years of experience building scalable web applications, strong knowledge of REST API integration, state management with Redux, and experience with Tailwind CSS. Knowledge of CI/CD pipelines and Docker is a plus.'
-    },
-    {
-      id: '2',
-      jobTitle: 'Full Stack Engineer',
-      company: 'StartupXYZ',
-      location: 'Remote',
-      status: 'Applied' as const,
-      channel: 'Company Portal' as const,
-      applicationDate: new Date('2026-01-12'),
-      resumeName: 'resume_startupxyz.pdf',
-      jobDescription: 'Looking for a Full Stack Engineer proficient in Node.js, Express, React, PostgreSQL, and AWS. You will be responsible for building and maintaining microservices, implementing REST APIs, and working with Docker and Kubernetes. Strong problem-solving skills and experience with Agile methodologies required.'
-    },
-    {
-      id: '3',
-      jobTitle: 'React Developer',
-      company: 'Digital Innovations Inc',
-      location: 'New York, NY',
-      status: 'Applied' as const,
-      channel: 'Email' as const,
-      applicationDate: new Date('2026-01-10'),
-      resumeName: 'resume_digital.pdf',
-      jobDescription: 'We need a React Developer with strong JavaScript and TypeScript skills. Experience with React hooks, Redux, and modern CSS frameworks like Tailwind CSS is essential. You should be comfortable with Git, unit testing, and working in an Agile Scrum environment.'
-    },
-    {
-      id: '4',
-      jobTitle: 'Software Engineer',
-      company: 'Enterprise Tech',
-      location: 'Austin, TX',
-      status: 'Rejected' as const,
-      channel: 'LinkedIn' as const,
-      applicationDate: new Date('2026-01-05'),
-      resumeName: 'resume_enterprise.pdf',
-      jobDescription: 'Enterprise Tech is hiring a Software Engineer with experience in Java, Spring Boot, microservices architecture, and cloud platforms (AWS or Azure). Strong understanding of SQL databases, REST APIs, and CI/CD pipelines is required. Experience with Docker and team collaboration skills are essential.'
-    },
-    {
-      id: '5',
-      jobTitle: 'Frontend Engineer',
-      company: 'CloudNine Systems',
-      location: 'Seattle, WA',
-      status: 'Applied' as const,
-      channel: 'Company Portal' as const,
-      applicationDate: new Date('2026-01-08'),
-      resumeName: 'resume_cloudnine.pdf',
-      jobDescription: 'Seeking a Frontend Engineer skilled in Vue.js, JavaScript, HTML, CSS, and modern frontend tooling. Experience with GraphQL, responsive design, and cross-browser compatibility is important. Good communication and team collaboration abilities are a must.'
-    },
-    {
-      id: '6',
-      jobTitle: 'Backend Developer',
-      company: 'DataFlow Analytics',
-      location: 'Boston, MA',
-      status: 'Applied' as const,
-      channel: 'Email' as const,
-      applicationDate: new Date('2026-01-14'),
-      resumeName: 'resume_dataflow.pdf',
-      jobDescription: 'DataFlow Analytics needs a Backend Developer with Python, Django, Flask experience. You will work with PostgreSQL, Redis, and build REST APIs. Knowledge of AWS, Docker, and microservices architecture is valuable. Strong problem-solving skills required.'
-    },
-    {
-      id: '7',
-      jobTitle: 'Lead Software Engineer',
-      company: 'FinTech Solutions',
-      location: 'Chicago, IL',
-      status: 'Interview' as const,
-      channel: 'LinkedIn' as const,
-      applicationDate: new Date('2026-01-11'),
-      resumeName: 'resume_fintech.pdf',
-      jobDescription: 'Lead Software Engineer position requiring expertise in Node.js, TypeScript, React, MongoDB, and AWS. Leadership experience, strong communication skills, and ability to mentor junior developers essential. Experience with TDD, Agile, and CI/CD pipelines required.'
-    },
-    {
-      id: '8',
-      jobTitle: 'DevOps Engineer',
-      company: 'Infrastructure Pro',
-      location: 'Denver, CO',
-      status: 'Applied' as const,
-      channel: 'Company Portal' as const,
-      applicationDate: new Date('2026-01-09'),
-      resumeName: 'resume_infrastructure.pdf',
-      jobDescription: 'DevOps Engineer role focused on AWS, Docker, Kubernetes, and CI/CD pipeline automation. Experience with infrastructure as code, monitoring tools, and scripting (Python or Bash) required. Strong problem-solving and team collaboration skills necessary.'
-    }
-  ];
-  
-  // Generate simple mock analysis for each (non-async fallback)
-  return mockData.map(app => ({
-    ...app,
-    analysis: generateSimpleAnalysis(app.jobDescription, app.resumeName)
-  }));
+STRICT INSTRUCTIONS:
+1. jdKeywords must contain 15–20 UNIQUE, ATS-relevant, role-specific terms.
+2. cvKeywords must contain 15–20 UNIQUE, ATS-relevant, role-specific terms.
+3. Keywords must be concrete, matchable, and technical (e.g., tools, methods, standards).
+4. Provide EXACTLY 4–6 actionable improvement suggestions.
+5. Do NOT invent skills, experience, or personal information.
+6. If information is missing, return an empty string.
+7. Output ONLY the JSON object.
+`;
+
+  try {
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text().trim();
+
+    // Clean possible code fences
+    const cleaned = responseText
+      .replace(/^```json\s*/i, '')
+      .replace(/\s*```$/i, '')
+      .trim();
+
+    const parsed = JSON.parse(cleaned);
+
+    // Basic validation & defaults (Setting scores to 0 as per "Do NOT calculate scores" instruction)
+    return {
+      overallMatch: 0,
+      subScores: {
+        skillsMatch: 0,
+        experienceMatch: 0,
+        languageLocationMatch: 0,
+      },
+      matchedSkills: [],
+      missingSkills: [],
+      atsScore: 0,
+      atsIssues: [],
+      suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : [],
+      jdKeywords: Array.isArray(parsed.jdKeywords) ? parsed.jdKeywords : [],
+      cvKeywords: Array.isArray(parsed.cvKeywords) ? parsed.cvKeywords : [],
+      extractedProfile: parsed.extractedProfile
+    };
+  } catch (err) {
+    console.error('[generateAnalysis] Gemini Error:', err);
+    return generateFallbackAnalysis();
+  }
 }
 
-// Simple synchronous analysis for initial mock data
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function generateSimpleAnalysis(jobDescription: string, _resumeName: string): AnalysisResults {
-  const requiredSkills = extractSkillsFromDescription(jobDescription);
-  const matchPercentage = 0.6 + Math.random() * 0.3;
-  const matchCount = Math.floor(requiredSkills.length * matchPercentage);
-  
-  const shuffled = [...requiredSkills].sort(() => 0.5 - Math.random());
-  const matchedSkills = shuffled.slice(0, matchCount);
-  const missingSkillsList = shuffled.slice(matchCount);
-  
-  const missingSkills: SkillGap[] = missingSkillsList.map((skill, index) => ({
-    skill,
-    priority: index < missingSkillsList.length / 2 ? 'Required' as const : 'Nice-to-have' as const
-  }));
-  
-  const skillsMatch = requiredSkills.length > 0 
-    ? Math.round((matchedSkills.length / requiredSkills.length) * 100)
-    : 85;
-  
-  const experienceMatch = 70 + Math.floor(Math.random() * 25);
-  const languageLocationMatch = 85 + Math.floor(Math.random() * 15);
-  
-  const overallMatch = Math.round(
-    skillsMatch * 0.4 + 
-    experienceMatch * 0.3 + 
-    languageLocationMatch * 0.3
-  );
-  
-  const atsScore = 65 + Math.floor(Math.random() * 30);
-  
-  const atsIssues = [
-    { type: 'structure' as const, severity: 'medium' as const, message: 'Consider clearer section headings' },
-    { type: 'keyword' as const, severity: 'low' as const, message: 'More job-specific keywords would help' }
-  ];
-  
-  const suggestions: Suggestion[] = [
-    {
-      category: 'Summary' as const,
-      text: 'Tailor your professional summary to emphasize relevant experience and highlight key achievements',
-      priority: 'high' as const
-    },
-    {
-      category: 'Skills' as const,
-      text: 'Consider adding or highlighting missing skills if you have experience with them',
-      priority: 'high' as const
-    },
-    {
-      category: 'Format' as const,
-      text: 'Use a clean, single-column layout without tables for better ATS compatibility',
-      priority: 'medium' as const
-    },
-    {
-      category: 'Experience' as const,
-      text: 'Quantify achievements with metrics (e.g., "Increased efficiency by 30%")',
-      priority: 'medium' as const
-    }
-  ];
-  
+// ── Fallback Analysis (Static/Mock) ─────────────────────────────────────────────
+function generateFallbackAnalysis(): AnalysisResults {
   return {
-    overallMatch,
+    overallMatch: 0,
     subScores: {
-      skillsMatch,
-      experienceMatch,
-      languageLocationMatch
+      skillsMatch: 0,
+      experienceMatch: 0,
+      languageLocationMatch: 0
     },
-    matchedSkills,
-    missingSkills,
-    atsScore,
-    atsIssues,
-    suggestions
+    matchedSkills: [],
+    missingSkills: [],
+    atsScore: 0,
+    atsIssues: [],
+    suggestions: [
+      { category: 'Format', text: 'Gemini analysis failed or was interrupted. Please try again.', priority: 'medium' }
+    ],
+    jdKeywords: [],
+    cvKeywords: [],
+    extractedProfile: {
+      summary: 'Analysis failed.'
+    }
   };
 }
 
-// ── Create new application with analysis ───────────────────────────────────────
+// ── Create Application Wrapper ──────────────────────────────────────────────────
 export async function createApplication(input: NewApplicationInput): Promise<JobApplication> {
   const id = Date.now().toString()
   const analysis = await generateAnalysis(
     input.jobDescription,
     input.resumeName,
+    input.resumeText,
     input.jobTitle
   )
 
@@ -363,4 +163,36 @@ export async function createApplication(input: NewApplicationInput): Promise<Job
     applicationDate: new Date(),
     analysis
   }
+}
+
+// ── Mock Data Generator ─────────────────────────────────────────────────────────
+export function generateMockApplications(): JobApplication[] {
+  // We keep this for the "first-load" experience
+  return [
+    {
+      id: 'mock-1',
+      jobTitle: 'Frontend Engineer',
+      company: 'Apple',
+      location: 'Cupertino, CA',
+      status: 'Analyzed',
+      channel: 'LinkedIn',
+      applicationDate: new Date(),
+      jobDescription: 'Seeking expert React developer...',
+      resumeName: 'my_resume.pdf',
+      resumeText: 'Experience in React and TypeScript...',
+      analysis: {
+        overallMatch: 85,
+        subScores: { skillsMatch: 90, experienceMatch: 80, languageLocationMatch: 100 },
+        matchedSkills: ['React', 'TypeScript', 'Tailwind'],
+        missingSkills: [{ skill: 'Next.js', priority: 'Required' }],
+        atsScore: 92,
+        atsIssues: [],
+        suggestions: [
+          { category: 'Skills', text: 'Add Next.js to your resume.', priority: 'high' }
+        ],
+        jdKeywords: ['React', 'Next.js', 'TypeScript'],
+        cvKeywords: ['React', 'TypeScript', 'JavaScript']
+      }
+    }
+  ];
 }
