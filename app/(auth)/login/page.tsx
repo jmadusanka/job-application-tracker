@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, FormEvent, useEffect } from 'react'
+import { useState, FormEvent, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSupabase } from '@/context/SupabaseProvider'
 import { Button } from '@/components/ui/button'
@@ -10,15 +10,34 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { AlertCircle, CheckCircle } from 'lucide-react'
 
+const AlertMessages = () => {
+  const searchParams = useSearchParams()
+  const message = searchParams.get('message')
+
+  return (
+    <>
+      {message === 'password-updated' && (
+        <div className="flex items-center text-sm text-green-600 bg-green-50 p-3 rounded-md mb-4">
+          <CheckCircle className="w-4 h-4 mr-2" />
+          Password updated successfully! Please log in with your new password.
+        </div>
+      )}
+      {message === 'reset-link-expired' && (
+        <div className="flex items-center text-sm text-red-600 bg-red-50 p-3 rounded-md mb-4">
+          <AlertCircle className="w-4 h-4 mr-2" />
+          Reset link expired or invalid. Please request a new one.
+        </div>
+      )}
+    </>
+  )
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { supabase } = useSupabase()
-
-  const message = searchParams.get('message')
 
   useEffect(() => {
     console.log('[LoginPage] Supabase client available:', !!supabase)
@@ -32,24 +51,20 @@ export default function LoginPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
-
     if (!email || !password) {
       setError('Please enter both email and password')
       return
     }
-
     try {
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
-
       if (signInError) {
         console.error('[Login] signInWithPassword error:', signInError)
         setError(signInError.message || 'Invalid login credentials')
         return
       }
-
       router.push('/dashboard')
     } catch (err) {
       console.error('[Login] Unexpected error:', err)
@@ -86,29 +101,15 @@ export default function LoginPage() {
             <Badge variant="warning">Demo Mode</Badge>
           </div>
         </div>
-
         <Card>
           <CardHeader>
             <CardTitle>Sign In</CardTitle>
             <CardDescription>Enter your credentials to access your dashboard</CardDescription>
           </CardHeader>
           <CardContent>
-            {/* Success after password update */}
-            {message === 'password-updated' && (
-              <div className="flex items-center text-sm text-green-600 bg-green-50 p-3 rounded-md mb-4">
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Password updated successfully! Please log in with your new password.
-              </div>
-            )}
-
-            {/* Expired/invalid reset link */}
-            {message === 'reset-link-expired' && (
-              <div className="flex items-center text-sm text-red-600 bg-red-50 p-3 rounded-md mb-4">
-                <AlertCircle className="w-4 h-4 mr-2" />
-                Reset link expired or invalid. Please request a new one.
-              </div>
-            )}
-
+            <Suspense fallback={null}>
+              <AlertMessages />
+            </Suspense>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -121,7 +122,6 @@ export default function LoginPage() {
                   required
                 />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <Input
@@ -133,25 +133,21 @@ export default function LoginPage() {
                   required
                 />
               </div>
-
               {error && (
                 <div className="flex items-center text-sm text-red-600 bg-red-50 p-3 rounded-md">
                   <AlertCircle className="w-4 h-4 mr-2" />
                   {error}
                 </div>
               )}
-
               <Button type="submit" className="w-full">
                 Sign In
               </Button>
             </form>
-
             <div className="mt-4">
               <Button variant="outline" className="w-full" onClick={handleGoogleSignIn}>
                 Sign in with Google
               </Button>
             </div>
-
             <div className="mt-4 text-center text-sm text-slate-600">
               <a href="/signup" className="hover:underline">Create an account</a> |{' '}
               <a href="/reset-password" className="hover:underline">Forgot password?</a>
