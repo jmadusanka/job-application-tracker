@@ -15,16 +15,13 @@ type JobDescriptionKeywords = {
   source: string;
   keywords: {
     required: string[];
-    preferred: string[];
   };
 };
 
 type SuitabilityResult = {
   requiredMatch: number;
-  preferredMatch: number;
   overallScore: number;
   matchedRequired: string[];
-  matchedPreferred: string[];
 };
 
 function normalizeKeywords(list: string[]) {
@@ -35,24 +32,25 @@ function calculateSuitability(
   cv: CvKeywords,
   jd: JobDescriptionKeywords
 ): SuitabilityResult {
-  const cvSet = new Set(normalizeKeywords(cv.keywords).map((k) => k.toLowerCase()));
+  const cvSet = new Set(
+    normalizeKeywords(cv.keywords).map((k) => k.toLowerCase())
+  );
+
   const required = normalizeKeywords(jd.keywords.required);
-  const preferred = normalizeKeywords(jd.keywords.preferred);
 
-  const matchedRequired = required.filter((k) => cvSet.has(k.toLowerCase()));
-  const matchedPreferred = preferred.filter((k) => cvSet.has(k.toLowerCase()));
+  const matchedRequired = required.filter((k) =>
+    cvSet.has(k.toLowerCase())
+  );
 
-  const requiredMatch = required.length > 0 ? matchedRequired.length / required.length : 1;
-  const preferredMatch = preferred.length > 0 ? matchedPreferred.length / preferred.length : 1;
+  const requiredMatch =
+    required.length > 0 ? matchedRequired.length / required.length : 1;
 
-  const overallScore = (requiredMatch * 0.7 + preferredMatch * 0.3) * 100;
+  const overallScore = requiredMatch * 100;
 
   return {
     requiredMatch,
-    preferredMatch,
     overallScore,
-    matchedRequired,
-    matchedPreferred
+    matchedRequired
   };
 }
 
@@ -75,9 +73,13 @@ export function SuitabilityEngine() {
           throw new Error('Failed to load sample keyword data.');
         }
 
-        const [cvData, jdData] = await Promise.all([cvRes.json(), jdRes.json()]);
+        const [cvData, jdData] = await Promise.all([
+          cvRes.json(),
+          jdRes.json()
+        ]);
 
         if (!active) return;
+
         setCv(cvData);
         setJd(jdData);
       } catch (err) {
@@ -87,6 +89,7 @@ export function SuitabilityEngine() {
     }
 
     loadData();
+
     return () => {
       active = false;
     };
@@ -102,50 +105,51 @@ export function SuitabilityEngine() {
       <CardHeader>
         <CardTitle>CV Suitability Engine</CardTitle>
       </CardHeader>
+
       <CardContent className="space-y-4">
         {error ? (
           <p className="text-sm text-red-600">{error}</p>
         ) : !result || !cv || !jd ? (
-          <p className="text-sm text-slate-600">Loading suitability analysis...</p>
+          <p className="text-sm text-slate-600">
+            Loading suitability analysis...
+          </p>
         ) : (
           <>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-500">{cv.source}</p>
-                <p className="text-base font-semibold text-slate-900">{cv.candidateName}</p>
+                <p className="text-base font-semibold text-slate-900">
+                  {cv.candidateName}
+                </p>
               </div>
+
               <div className="text-right">
-                <p className="text-sm text-slate-500">Overall suitability</p>
+                <p className="text-sm text-slate-500">
+                  Overall suitability
+                </p>
                 <p className="text-2xl font-bold text-slate-900">
                   {Math.round(result.overallScore)}%
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 text-sm text-slate-600">
-              <div>
-                <p className="font-medium text-slate-800">
-                  Required match: {Math.round(result.requiredMatch * 100)}%
-                </p>
-                <p>
-                  {result.matchedRequired.length}/{jd.keywords.required.length} required keywords
-                </p>
-              </div>
-              <div>
-                <p className="font-medium text-slate-800">
-                  Preferred match: {Math.round(result.preferredMatch * 100)}%
-                </p>
-                <p>
-                  {result.matchedPreferred.length}/{jd.keywords.preferred.length} preferred keywords
-                </p>
-              </div>
+            <div className="text-sm text-slate-600">
+              <p className="font-medium text-slate-800">
+                Required match: {Math.round(result.requiredMatch * 100)}%
+              </p>
+              <p>
+                {result.matchedRequired.length}/
+                {jd.keywords.required.length} required keywords
+              </p>
             </div>
 
             <div className="text-sm text-slate-600">
               <p className="font-medium text-slate-800">
                 Job description: {jd.jobTitle} at {jd.company}
               </p>
-              <p className="text-xs text-slate-500">{jd.source}</p>
+              <p className="text-xs text-slate-500">
+                {jd.source}
+              </p>
             </div>
           </>
         )}
