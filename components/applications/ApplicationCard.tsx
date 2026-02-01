@@ -1,7 +1,7 @@
 'use client';
 
 import { useApplications } from '@/context/ApplicationContext';
-import { MoreVertical, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { JobApplication, ApplicationStatus } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, MapPin, Briefcase } from 'lucide-react';

@@ -104,10 +104,9 @@ STRICT INSTRUCTIONS:
     const jdKeywords = Array.isArray(parsed.jdKeywords) ? parsed.jdKeywords : [];
     const cvKeywords = Array.isArray(parsed.cvKeywords) ? parsed.cvKeywords : [];
     // Lowercase for matching
-    const jdKeywordsLower = jdKeywords.map(k => k.toLowerCase());
-    const cvKeywordsLower = cvKeywords.map(k => k.toLowerCase());
+    const jdKeywordsLower = jdKeywords.map((k: string) => k.toLowerCase());
+    const cvKeywordsLower = cvKeywords.map((k: string) => k.toLowerCase());
     // Import matchKeywords from atsAnalyzer
-    // @ts-ignore
     const { matchKeywords } = await import('./analyzers/atsAnalyzer');
     const { matched, missing } = matchKeywords(cvKeywordsLower, jdKeywordsLower);
     // Map back to original-case for display
