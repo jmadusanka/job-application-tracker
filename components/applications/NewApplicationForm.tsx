@@ -2,14 +2,16 @@
 
 import { useState, FormEvent, ChangeEvent } from 'react';
 import { useApplications } from '@/context/ApplicationContext';
+import { useSupabase } from '@/context/SupabaseProvider';
 import { NewApplicationInput, ApplicationStatus, ApplicationChannel } from '@/lib/types';
+import { generateAnalysis } from '@/lib/analysis';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { X, Upload } from 'lucide-react';
+import { X, Upload, Loader2 } from 'lucide-react';
 
 interface NewApplicationFormProps {
   onClose: () => void;
@@ -17,17 +19,23 @@ interface NewApplicationFormProps {
 
 export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
   const { addApplication } = useApplications();
+  const { session } = useSupabase();
+
   const [formData, setFormData] = useState<Partial<NewApplicationInput>>({
     jobTitle: '',
     company: '',
     location: '',
-    status: 'Analyzed',
-    channel: 'Company Portal',
+    status: 'Analyzed' as ApplicationStatus,
+    channel: 'Company Portal' as ApplicationChannel,
     jobDescription: '',
-    resumeName: ''
+    resumeName: '',
+    resumeText: '',
   });
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -35,16 +43,17 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
       // Validate file type
       const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
       if (!validTypes.includes(file.type)) {
-        alert('Please upload a PDF or DOC file');
+        setErrorMessage('Please upload a PDF or DOC/DOCX file');
         return;
       }
       // Validate file size (5MB max)
       if (file.size > 5 * 1024 * 1024) {
-        alert('File size must be less than 5MB');
+        setErrorMessage('File size must be less than 5MB');
         return;
       }
       setSelectedFile(file);
-      setFormData({ ...formData, resumeName: file.name });
+      setFormData(prev => ({ ...prev, resumeName: file.name }));
+      setErrorMessage(null);
     }
   };
 
@@ -52,44 +61,96 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
     e.preventDefault();
 
     if (!formData.jobTitle || !formData.company || !formData.location || !formData.jobDescription) {
-      alert('Please fill in all required fields');
+      setErrorMessage('Please fill in all required fields');
       return;
     }
 
-    // Upload resume if file selected
-    let extractedText = '';
-    if (selectedFile) {
-      setUploading(true);
-      try {
-        const formDataUpload = new FormData();
-        formDataUpload.append('file', selectedFile);
+    if (!session?.user) {
+      setErrorMessage('You must be logged in');
+      return;
+    }
 
-        const response = await fetch('/api/resume/upload', {
+    setUploading(true);
+    setErrorMessage(null);
+
+    let resumeName = formData.resumeName || '';
+    let resumeText = '';
+    let resumeFilePath: string | undefined = undefined;
+
+    // Upload and parse resume server-side if file selected
+    if (selectedFile) {
+      try {
+        const uploadFormData = new FormData();
+        uploadFormData.append('file', selectedFile);
+        uploadFormData.append('userId', session.user.id);
+
+        const response = await fetch('/api/applications/upload-resume', {
           method: 'POST',
-          body: formDataUpload,
+          body: uploadFormData,
         });
 
         if (!response.ok) {
-          throw new Error('Failed to upload resume');
+          const err = await response.json();
+          throw new Error(err.error || 'Upload failed');
         }
 
         const result = await response.json();
-        formData.resumeName = result.filename;
-        extractedText = result.extractedText || '';
-      } catch (error) {
+        resumeName = result.resumeName;
+        resumeText = result.resumeText || '';
+        resumeFilePath = result.resumeFilePath;
+
+        console.log('[NewApplicationForm] Resume uploaded & parsed successfully');
+      } catch (error: any) {
         console.error('Upload error:', error);
-        alert('Failed to upload resume. Please try again.');
+        setErrorMessage(error.message || 'Failed to upload resume. Please try again.');
         setUploading(false);
         return;
       }
-      setUploading(false);
     }
 
-    addApplication({
-      ...formData as NewApplicationInput,
-      resumeText: extractedText
-    });
-    onClose();
+    setUploading(false);
+    setAnalyzing(true);
+
+    // Run real AI analysis
+    let analysis;
+    try {
+      analysis = await generateAnalysis(
+        formData.jobDescription || '',
+        resumeName,
+        resumeText,
+        formData.jobTitle || ''
+      );
+      console.log('[NewApplicationForm] AI analysis completed');
+    } catch (error) {
+      console.error('Analysis error:', error);
+      setErrorMessage('AI analysis failed. Please try again.');
+      setAnalyzing(false);
+      return;
+    }
+
+    // Save application to Supabase
+    try {
+      await addApplication({
+        jobTitle: formData.jobTitle,
+        company: formData.company,
+        location: formData.location,
+        status: formData.status,
+        channel: formData.channel,
+        jobDescription: formData.jobDescription,
+        resumeName,
+        resumeText,
+        resume_file_path: resumeFilePath,
+        analysis,
+      } as NewApplicationInput);
+
+      console.log('[NewApplicationForm] Application saved successfully');
+      onClose();
+    } catch (error) {
+      console.error('Save error:', error);
+      setErrorMessage('Failed to save application');
+    }
+
+    setAnalyzing(false);
   };
 
   return (
@@ -203,6 +264,7 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
                   variant="outline"
                   size="sm"
                   onClick={() => document.getElementById('fileInput')?.click()}
+                  disabled={uploading || analyzing}
                 >
                   <Upload className="w-4 h-4 mr-2" />
                   Browse
@@ -220,11 +282,26 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
               </p>
             </div>
 
+            {errorMessage && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
+                {errorMessage}
+              </div>
+            )}
+
             <div className="flex gap-3 pt-4">
-              <Button type="submit" className="flex-1" disabled={uploading}>
-                {uploading ? 'Uploading...' : 'Add Application'}
+              <Button type="submit" className="flex-1" disabled={uploading || analyzing}>
+                {analyzing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Analyzing...
+                  </>
+                ) : uploading ? (
+                  'Uploading...'
+                ) : (
+                  'Add Application'
+                )}
               </Button>
-              <Button type="button" variant="outline" onClick={onClose} disabled={uploading}>
+              <Button type="button" variant="outline" onClick={onClose} disabled={uploading || analyzing}>
                 Cancel
               </Button>
             </div>

@@ -1,8 +1,7 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  // No experimental block needed for now
-  // We'll disable Turbopack via CLI instead
+  serverExternalPackages: ['pdf-parse', 'mammoth'], // New top-level key (Next.js 15+)
 };
 
 export default nextConfig;
