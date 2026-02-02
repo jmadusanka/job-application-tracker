@@ -100,7 +100,18 @@ STRICT INSTRUCTIONS:
 
     const parsed = JSON.parse(cleaned);
 
-    // Basic validation & defaults (Setting scores to 0 as per "Do NOT calculate scores" instruction)
+    // Compute matchedSkills and missingSkills using matchKeywords
+    const jdKeywords = Array.isArray(parsed.jdKeywords) ? parsed.jdKeywords : [];
+    const cvKeywords = Array.isArray(parsed.cvKeywords) ? parsed.cvKeywords : [];
+    // Lowercase for matching
+    const jdKeywordsLower = jdKeywords.map((k: string) => k.toLowerCase());
+    const cvKeywordsLower = cvKeywords.map((k: string) => k.toLowerCase());
+    // Import matchKeywords from atsAnalyzer
+    const { matchKeywords } = await import('./analyzers/atsAnalyzer');
+    const { matched, missing } = matchKeywords(cvKeywordsLower, jdKeywordsLower);
+    // Map back to original-case for display
+    const matchedSkills = matched.map(lc => jdKeywords[jdKeywordsLower.indexOf(lc)]).filter(Boolean);
+    const missingSkills = missing.map(lc => ({ skill: jdKeywords[jdKeywordsLower.indexOf(lc)], priority: 'Required' as const })).filter(gap => !!gap.skill);
     return {
       overallMatch: 0,
       subScores: {
@@ -108,13 +119,13 @@ STRICT INSTRUCTIONS:
         experienceMatch: 0,
         languageLocationMatch: 0,
       },
-      matchedSkills: [],
-      missingSkills: [],
+      matchedSkills,
+      missingSkills,
       atsScore: 0,
       atsIssues: [],
       suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : [],
-      jdKeywords: Array.isArray(parsed.jdKeywords) ? parsed.jdKeywords : [],
-      cvKeywords: Array.isArray(parsed.cvKeywords) ? parsed.cvKeywords : [],
+      jdKeywords,
+      cvKeywords,
       extractedProfile: parsed.extractedProfile
     };
   } catch (err) {

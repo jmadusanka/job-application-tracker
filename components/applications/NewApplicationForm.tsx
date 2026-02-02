@@ -1,6 +1,25 @@
 'use client';
 
 import { useState, FormEvent, ChangeEvent } from 'react';
+// List of previously uploaded CVs (from uploads/resumes)
+const previouslyUploadedCVs = [
+  "1769622884270-CV_Dinesh_20.10.2022-(1).pdf",
+  "1769623029563-CV_Dinesh_20.10.2022-(1).pdf",
+  "1769623136070-CV_Dinesh_20.10.2022-(1).pdf",
+  "1769623248072-CV_Dinesh_20.10.2022-(1).pdf",
+  "1769623394184-CV_Dinesh_20.10.2022-(1).pdf",
+  "1769624775404-CV_Dinesh_20.10.2022-(1).pdf",
+  "1769625828120-CV_Dinesh_20.10.2022-(1).pdf",
+  "1769625942799-CV_Dinesh_20.10.2022-(1).pdf",
+  "1769628705030-CV_Dinesh_20.10.2022-(1).pdf",
+  "1769765506257-Manjula-CV-(4).pdf",
+  "1769767102984-CV_Dinesh_20.10.2022-(1).pdf",
+  "1769975113906-CV_Dinesh_20.10.2022-(1).pdf",
+  "1769975321673-CV_Dinesh_20.10.2022-(1).pdf",
+  "1769975591472-CV_Dinesh_20.10.2022-(1).pdf",
+  "1769975739060-CV_Dinesh_20.10.2022-(1).pdf",
+  "1769976167586-CV_Dinesh_20.10.2022-(1).pdf"
+];
 import { useApplications } from '@/context/ApplicationContext';
 import { NewApplicationInput, ApplicationStatus, ApplicationChannel } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -28,6 +47,8 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [useExistingCV, setUseExistingCV] = useState(false);
+  const [selectedExistingCV, setSelectedExistingCV] = useState("");
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -46,6 +67,8 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
       setSelectedFile(file);
       setFormData({ ...formData, resumeName: file.name });
     }
+    setUseExistingCV(false);
+    setSelectedExistingCV("");
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -58,7 +81,12 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
 
     // Upload resume if file selected
     let extractedText = '';
-    if (selectedFile) {
+    if (useExistingCV && selectedExistingCV) {
+      // Use the selected existing CV filename
+      formData.resumeName = selectedExistingCV;
+      // Optionally, fetch extractedText from server if needed
+      extractedText = '';
+    } else if (selectedFile) {
       setUploading(true);
       try {
         const formDataUpload = new FormData();
@@ -132,6 +160,13 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
               </div>
             </div>
 
+
+
+
+
+
+
+
             <div className="space-y-2">
               <Label htmlFor="location">Location *</Label>
               <Input
@@ -188,6 +223,30 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
               </p>
             </div>
 
+            {/* Existing CV selection - moved to just above Resume upload */}
+            <div className="space-y-2">
+              <Label htmlFor="existingCV">Use Previously Uploaded CV</Label>
+              <select
+                id="existingCV"
+                className="w-full border rounded px-2 py-1"
+                value={selectedExistingCV}
+                onChange={e => {
+                  setSelectedExistingCV(e.target.value);
+                  setUseExistingCV(!!e.target.value);
+                  setSelectedFile(null);
+                  setFormData({ ...formData, resumeName: e.target.value });
+                }}
+              >
+                <option value="">-- Select a file --</option>
+                {previouslyUploadedCVs.map(filename => (
+                  <option key={filename} value={filename}>{filename}</option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-500">
+                Or upload a new file below.
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="resumeName">Resume</Label>
               <div className="flex items-center gap-2">
@@ -202,7 +261,8 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => document.getElementById('fileInput')?.click()}
+                  onClick={() => !useExistingCV && document.getElementById('fileInput')?.click()}
+                  disabled={useExistingCV}
                 >
                   <Upload className="w-4 h-4 mr-2" />
                   Browse
@@ -213,6 +273,7 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
                   accept=".pdf,.doc,.docx"
                   onChange={handleFileChange}
                   className="hidden"
+                  disabled={useExistingCV}
                 />
               </div>
               <p className="text-xs text-slate-500">

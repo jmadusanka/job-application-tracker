@@ -1,3 +1,26 @@
+// Keyword matching between two texts
+/**
+ * Matches keywords between two arrays or texts.
+ * @param sourceKeywords Array of keywords from source (e.g., resume)
+ * @param targetKeywords Array of keywords from target (e.g., job description)
+ * @returns { matched: string[], missing: string[] }
+ */
+// Partial/fuzzy matching: consider a match if one phrase contains the other (case-insensitive)
+export function matchKeywords(sourceKeywords: string[], targetKeywords: string[]) {
+  const matched: string[] = [];
+  const missing: string[] = [];
+  targetKeywords.forEach(target => {
+    const found = sourceKeywords.some(src =>
+      src.includes(target) || target.includes(src)
+    );
+    if (found) {
+      matched.push(target);
+    } else {
+      missing.push(target);
+    }
+  });
+  return { matched, missing };
+}
 import { ATSIssue, AnalysisResults, SkillGap } from '@/lib/types';
 
 // Analyze ATS compatibility
@@ -45,17 +68,20 @@ export function analyzeATS(resumeText: string, jobDescription: string): Analysis
   };
 }
 
-// Extract skills from text (basic keyword extraction)
-function extractSkills(text: string): string[] {
-  const commonSkills = [
-    'JavaScript', 'TypeScript', 'React', 'Node.js', 'Python', 'Java',
-    'SQL', 'Git', 'AWS', 'Docker', 'API', 'REST', 'GraphQL',
-    'HTML', 'CSS', 'MongoDB', 'PostgreSQL', 'Express', 'Next.js'
-  ];
+// Extract keywords/phrases from text (improved for multi-word and real-world phrases)
+// This is a simple phrase extraction: split by line, semicolon, or comma, then clean up
+export function extractSkills(text: string): string[] {
+  if (!text) return [];
+  // Split by newlines, semicolons, commas, and periods
+  let phrases = text
+    .split(/\n|;|,|\.|\r/)
+    .map(s => s.trim().toLowerCase())
+    .filter(Boolean)
+    .filter(s => s.length > 2 && !/^(and|or|the|a|an|to|for|with|in|on|by|of|at|as|is|are|was|were|be|been|has|have|had)$/.test(s));
 
-  return commonSkills.filter(skill =>
-    text.toLowerCase().includes(skill.toLowerCase())
-  );
+  // Remove duplicates
+  phrases = Array.from(new Set(phrases));
+  return phrases;
 }
 
 // Detect ATS compatibility issues
