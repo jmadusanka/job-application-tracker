@@ -25,6 +25,69 @@ export interface Suggestion {
   priority: SuggestionPriority;
 }
 
+// ── Extracted Profile from CV ───────────────────────────────────────────────────
+export interface ExtractedProfile {
+  personalInfo?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    location?: string;
+    linkedin?: string;
+    portfolio?: string;
+  };
+  summary?: string;
+  education?: {
+    degree?: string;
+    field?: string;
+    institution?: string;
+    year?: number;
+    level?: number; // 1=High School, 2=Associate, 3=Bachelor, 4=Master, 5=PhD
+  }[];
+  experience?: {
+    title?: string;
+    company?: string;
+    duration?: string;
+    yearsOfExperience?: number;
+    description?: string;
+  }[];
+  skills?: string[];
+  languages?: {
+    language: string;
+    proficiency?: 'native' | 'fluent' | 'intermediate' | 'basic';
+  }[];
+  totalYearsExperience?: number;
+}
+
+// ── Extracted Requirements from Job Description ────────────────────────────────
+export interface ExtractedJobRequirements {
+  requiredSkills: string[];
+  preferredSkills?: string[];
+  mustHaveSkills?: string[]; // Critical skills that heavily impact score
+  requiredYearsExperience?: number;
+  requiredEducationLevel?: number; // 1=High School, 2=Associate, 3=Bachelor, 4=Master, 5=PhD
+  requiredLanguages?: string[];
+}
+
+// ── Suitability Sub-Scores ──────────────────────────────────────────────────────
+export interface SuitabilitySubScores {
+  skillsScore: number;      // 0-1 (50% weight)
+  experienceScore: number;  // 0-1 (25% weight)
+  educationScore: number;   // 0-1 (10% weight)
+  languageScore: number;    // 0-1 (15% weight)
+}
+
+// ── Suitability Result ──────────────────────────────────────────────────────────
+export interface SuitabilityResult {
+  overallScore: number;           // 0-100 percentage
+  subScores: SuitabilitySubScores;
+  matchedSkills: string[];
+  missingSkills: string[];
+  missingMustHaveSkills: string[];
+  matchedLanguages: string[];
+  missingLanguages: string[];
+  hasMustHavePenalty: boolean;
+}
+
 export interface AnalysisResults {
   overallMatch: number; // 0-100
   subScores: {
@@ -39,20 +102,10 @@ export interface AnalysisResults {
   suggestions: Suggestion[];
   jdKeywords: string[];
   cvKeywords: string[];
-  extractedProfile?: {
-    personalInfo?: {
-      name?: string;
-      email?: string;
-      phone?: string;
-      location?: string;
-      linkedin?: string;
-      portfolio?: string;
-    };
-    summary?: string;
-      education?: unknown[];
-      experience?: unknown[];
-    skills?: string[];
-  };
+  
+  extractedProfile?: ExtractedProfile;
+  extractedJobRequirements?: ExtractedJobRequirements;
+  suitability?: SuitabilityResult;
 }
 
 export interface JobApplication {
