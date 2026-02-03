@@ -3,10 +3,13 @@ import {
   JobApplication,
   NewApplicationInput,
   AnalysisResults,
+  ExtractedProfile,
+  ExtractedJobRequirements,
   // SkillGap,
   // ATSIssue,
   // Suggestion
 } from './types';
+import { calculateSuitabilityFromKeywords } from './engines/suitabilityEngine';
 
 // ── Unified Analysis Prompt ──────────────────────────────────────────────────────
 export async function generateAnalysis(
@@ -37,13 +40,16 @@ Perform an ATS-style semantic analysis focused ONLY on:
 - Technical competencies
 - Tools & software
 - Domain-specific responsibilities
+- Years of experience required vs candidate experience
+- Education requirements vs candidate education
+- Language requirements vs candidate languages
 
 DO NOT extract:
 - Section labels
 - Generic HR terms
 - Soft or vague words
 
-FORBIDDEN KEYWORDS (must NOT appear in output):
+FORBIDDEN KEYWORDS (must NOT appear in jdKeywords or cvKeywords):
 role, responsibilities, requirements, experience, education, skills, growth, performance, teamwork, communication skills, leadership
 
 OUTPUT RULES:
@@ -57,6 +63,7 @@ Return JSON with EXACTLY this structure:
 {
   "jdKeywords": string[],
   "cvKeywords": string[],
+  "mustHaveKeywords": string[],
   "suggestions": [
     {
       "category": "Summary" | "Experience" | "Skills" | "Format",
@@ -74,18 +81,61 @@ Return JSON with EXACTLY this structure:
       "portfolio": string
     },
     "summary": string,
-    "skills": string[]
+    "skills": string[],
+    "education": [
+      {
+        "degree": string,
+        "field": string,
+        "institution": string,
+        "year": number,
+        "level": number
+      }
+    ],
+    "experience": [
+      {
+        "title": string,
+        "company": string,
+        "duration": string,
+        "yearsOfExperience": number
+      }
+    ],
+    "languages": [
+      {
+        "language": string,
+        "proficiency": "native" | "fluent" | "intermediate" | "basic"
+      }
+    ],
+    "totalYearsExperience": number
+  },
+  "extractedJobRequirements": {
+    "requiredSkills": string[],
+    "preferredSkills": string[],
+    "mustHaveSkills": string[],
+    "requiredYearsExperience": number,
+    "requiredEducationLevel": number,
+    "requiredLanguages": string[]
   }
 }
 
 STRICT INSTRUCTIONS:
-1. jdKeywords must contain 15–20 UNIQUE, ATS-relevant, role-specific terms.
-2. cvKeywords must contain 15–20 UNIQUE, ATS-relevant, role-specific terms.
-3. Keywords must be concrete, matchable, and technical (e.g., tools, methods, standards).
-4. Provide EXACTLY 4–6 actionable improvement suggestions.
-5. Do NOT invent skills, experience, or personal information.
-6. If information is missing, return an empty string.
-7. Output ONLY the JSON object.
+1. jdKeywords must contain 15–20 UNIQUE, ATS-relevant, role-specific terms from the job description.
+2. cvKeywords must contain ONLY keywords that ACTUALLY APPEAR in the resume text - DO NOT invent, infer, or assume any skills.
+3. CRITICAL: For cvKeywords, extract ONLY exact terms or close variations that are explicitly written in the resume.
+   - If resume says "React" → include "React"
+   - If resume says "JavaScript" → include "JavaScript", but DO NOT add "Java" separately
+   - If resume does NOT mention "Docker" anywhere → DO NOT include "Docker"
+   - If resume does NOT mention "AWS" anywhere → DO NOT include "AWS"
+   - If resume says "GitHub Actions" → include "GitHub Actions", you may include "CI/CD" only if those exact letters appear
+4. mustHaveKeywords must contain 3–5 CRITICAL skills that are absolutely required for the role (from JD).
+5. Keywords must be concrete, matchable, and technical (e.g., tools, methods, standards).
+6. Provide EXACTLY 4–6 actionable improvement suggestions.
+7. Education level: 1=High School, 2=Associate, 3=Bachelor, 4=Master, 5=PhD
+8. Calculate totalYearsExperience by summing all experience durations.
+9. requiredYearsExperience should be extracted from job description (e.g., "3+ years" = 3).
+10. ABSOLUTELY DO NOT HALLUCINATE OR INVENT skills that are not explicitly stated in the CV.
+11. If a skill is not mentioned in the CV, it should NOT appear in cvKeywords.
+12. If information is missing, use null or empty array.
+13. Output ONLY the JSON object.
 `;
 
   try {
@@ -102,7 +152,28 @@ STRICT INSTRUCTIONS:
 
     // Compute matchedSkills and missingSkills using matchKeywords
     const jdKeywords = Array.isArray(parsed.jdKeywords) ? parsed.jdKeywords : [];
-    const cvKeywords = Array.isArray(parsed.cvKeywords) ? parsed.cvKeywords : [];
+    let cvKeywords = Array.isArray(parsed.cvKeywords) ? parsed.cvKeywords : [];
+    const mustHaveKeywords = Array.isArray(parsed.mustHaveKeywords) ? parsed.mustHaveKeywords : [];
+    
+    // ── VALIDATION: Filter out CV keywords that don't actually appear in the resume ──
+    // This prevents AI hallucination of skills
+    const resumeTextLower = resumeContent.toLowerCase();
+    cvKeywords = cvKeywords.filter((keyword: string) => {
+      const keywordLower = keyword.toLowerCase();
+      // Check if the keyword or a close variant exists in the resume
+      if (resumeTextLower.includes(keywordLower)) return true;
+      
+      // Handle common variations (e.g., "Node.js" matches "nodejs" or "node")
+      const variations = [
+        keywordLower.replace(/\./g, ''),           // Remove dots: "Node.js" → "nodejs"
+        keywordLower.replace(/\.js$/i, ''),        // Remove .js suffix: "React.js" → "React"
+        keywordLower.replace(/-/g, ' '),           // Replace hyphens: "CI-CD" → "CI CD"
+        keywordLower.replace(/\s+/g, ''),          // Remove spaces: "CI CD" → "CICD"
+      ];
+      
+      return variations.some(variant => resumeTextLower.includes(variant));
+    });
+
     // Lowercase for matching
     const jdKeywordsLower = jdKeywords.map((k: string) => k.toLowerCase());
     const cvKeywordsLower = cvKeywords.map((k: string) => k.toLowerCase());
@@ -112,21 +183,47 @@ STRICT INSTRUCTIONS:
     // Map back to original-case for display
     const matchedSkills = matched.map(lc => jdKeywords[jdKeywordsLower.indexOf(lc)]).filter(Boolean);
     const missingSkills = missing.map(lc => ({ skill: jdKeywords[jdKeywordsLower.indexOf(lc)], priority: 'Required' as const })).filter(gap => !!gap.skill);
+
+    // ── Extract profile and job requirements from AI response ───────────────────
+    const extractedProfile: ExtractedProfile = parsed.extractedProfile || {};
+    const extractedJobRequirements: ExtractedJobRequirements = parsed.extractedJobRequirements || {
+      requiredSkills: jdKeywords,
+      mustHaveSkills: mustHaveKeywords
+    };
+
+    // ── Calculate Suitability Score using the Mathematical Engine ───────────────
+    const suitability = calculateSuitabilityFromKeywords(
+      cvKeywords,
+      jdKeywords,
+      mustHaveKeywords,
+      {
+        candidateYearsExperience: extractedProfile.totalYearsExperience,
+        requiredYearsExperience: extractedJobRequirements.requiredYearsExperience,
+        candidateEducationLevel: extractedProfile.education?.[0]?.level,
+        requiredEducationLevel: extractedJobRequirements.requiredEducationLevel,
+        candidateLanguages: extractedProfile.languages?.map(l => l.language),
+        requiredLanguages: extractedJobRequirements.requiredLanguages
+      }
+    );
+
+    // ── Build the final analysis results ─────────────────────────────────────────
     return {
-      overallMatch: 0,
+      overallMatch: Math.round(suitability.overallScore),
       subScores: {
-        skillsMatch: 0,
-        experienceMatch: 0,
-        languageLocationMatch: 0,
+        skillsMatch: Math.round(suitability.subScores.skillsScore * 100),
+        experienceMatch: Math.round(suitability.subScores.experienceScore * 100),
+        languageLocationMatch: Math.round(suitability.subScores.languageScore * 100),
       },
       matchedSkills,
       missingSkills,
-      atsScore: 0,
+      atsScore: Math.round(suitability.subScores.skillsScore * 100), // ATS score based on keyword match
       atsIssues: [],
       suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : [],
       jdKeywords,
       cvKeywords,
-      extractedProfile: parsed.extractedProfile
+      extractedProfile,
+      extractedJobRequirements,
+      suitability
     };
   } catch (err) {
     console.error('[generateAnalysis] Gemini Error:', err);
