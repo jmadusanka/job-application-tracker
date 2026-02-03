@@ -68,18 +68,46 @@ export interface ExtractedJobRequirements {
   requiredLanguages?: string[];
 }
 
+// ── Dynamic Scoring Weights (extracted from Job Description) ───────────────────
+export interface ScoringWeights {
+  skills: number;      // 0-1, typically 0.30-0.60
+  experience: number;  // 0-1, typically 0.15-0.35
+  education: number;   // 0-1, typically 0.05-0.25
+  language: number;    // 0-1, typically 0.05-0.25
+}
+
+export interface WeightExplanation {
+  skills: string;      // Why this weight was chosen
+  experience: string;
+  education: string;
+  language: string;
+}
+
+export interface ExtractedWeights {
+  weights: ScoringWeights;
+  explanations: WeightExplanation;
+  signals: {
+    isExperienceHeavy: boolean;    // "5+ years required", "senior role"
+    isEducationRequired: boolean;   // "degree required", "PhD preferred"
+    isLanguageCritical: boolean;    // "must speak Finnish", "native English"
+    isSkillsHeavy: boolean;         // Long list of technical requirements
+  };
+}
+
 // ── Suitability Sub-Scores ──────────────────────────────────────────────────────
 export interface SuitabilitySubScores {
-  skillsScore: number;      // 0-1 (50% weight)
-  experienceScore: number;  // 0-1 (25% weight)
-  educationScore: number;   // 0-1 (10% weight)
-  languageScore: number;    // 0-1 (15% weight)
+  skillsScore: number;      // 0-1
+  experienceScore: number;  // 0-1
+  educationScore: number;   // 0-1
+  languageScore: number;    // 0-1
 }
 
 // ── Suitability Result ──────────────────────────────────────────────────────────
 export interface SuitabilityResult {
   overallScore: number;           // 0-100 percentage
   subScores: SuitabilitySubScores;
+  weights: ScoringWeights;        // The weights used for this calculation
+  weightExplanations?: WeightExplanation;
   matchedSkills: string[];
   missingSkills: string[];
   missingMustHaveSkills: string[];
