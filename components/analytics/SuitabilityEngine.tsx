@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SuitabilityResult } from '@/lib/types';
-import { WEIGHTS } from '@/lib/engines/suitabilityEngine';
+import { DEFAULT_WEIGHTS } from '@/lib/engines/suitabilityEngine';
 
 interface SuitabilityEngineProps {
   suitability?: SuitabilityResult;
@@ -16,10 +16,11 @@ interface SuitabilityEngineProps {
 
 /**
  * Displays the suitability score breakdown based on the mathematical engine:
- * - Skills Match (50% weight)
- * - Experience Score (25% weight)  
- * - Language Score (15% weight)
- * - Education Score (10% weight)
+ * Uses DYNAMIC WEIGHTS extracted from job description by AI
+ * - Skills Match (dynamic weight based on JD signals)
+ * - Experience Score (dynamic weight based on seniority level)
+ * - Language Score (dynamic weight based on language requirements)
+ * - Education Score (dynamic weight based on education requirements)
  */
 export function SuitabilityEngine({
   suitability,
@@ -29,6 +30,10 @@ export function SuitabilityEngine({
   jobTitle = 'Position',
   company = 'Company'
 }: SuitabilityEngineProps) {
+  const [showExplanations, setShowExplanations] = useState(false);
+
+  // Use weights from suitability result, or default weights
+  const weights = suitability?.weights || DEFAULT_WEIGHTS;
   
   const scoreColor = useMemo(() => {
     if (!suitability) return 'text-slate-500';
@@ -64,7 +69,17 @@ export function SuitabilityEngine({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>CV Suitability Engine</CardTitle>
+        <CardTitle className="flex items-center justify-between">
+          <span>CV Suitability Engine</span>
+          {suitability.weightExplanations && (
+            <button
+              onClick={() => setShowExplanations(!showExplanations)}
+              className="text-xs font-normal text-blue-600 hover:text-blue-800"
+            >
+              {showExplanations ? 'Hide' : 'Show'} weight reasoning
+            </button>
+          )}
+        </CardTitle>
       </CardHeader>
 
       <CardContent className="space-y-6">
@@ -99,12 +114,25 @@ export function SuitabilityEngine({
 
         {/* Score breakdown */}
         <div className="space-y-4">
-          <h4 className="text-sm font-medium text-slate-800">Score Breakdown</h4>
+          <h4 className="text-sm font-medium text-slate-800">Score Breakdown (Dynamic Weights)</h4>
           
-          {/* Skills Score - 50% */}
+          {/* Weight explanations panel */}
+          {showExplanations && suitability.weightExplanations && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+              <p className="text-xs font-medium text-blue-800">Why these weights?</p>
+              <div className="grid grid-cols-2 gap-2 text-xs text-blue-700">
+                <div><strong>Skills:</strong> {suitability.weightExplanations.skills}</div>
+                <div><strong>Experience:</strong> {suitability.weightExplanations.experience}</div>
+                <div><strong>Language:</strong> {suitability.weightExplanations.language}</div>
+                <div><strong>Education:</strong> {suitability.weightExplanations.education}</div>
+              </div>
+            </div>
+          )}
+          
+          {/* Skills Score */}
           <div className="space-y-1">
             <div className="flex justify-between text-sm">
-              <span className="text-slate-600">Skills Match ({WEIGHTS.skills * 100}%)</span>
+              <span className="text-slate-600">Skills Match ({Math.round(weights.skills * 100)}%)</span>
               <span className="font-medium">{Math.round(suitability.subScores.skillsScore * 100)}%</span>
             </div>
             <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
@@ -118,10 +146,10 @@ export function SuitabilityEngine({
             </p>
           </div>
 
-          {/* Experience Score - 25% */}
+          {/* Experience Score */}
           <div className="space-y-1">
             <div className="flex justify-between text-sm">
-              <span className="text-slate-600">Experience ({WEIGHTS.experience * 100}%)</span>
+              <span className="text-slate-600">Experience ({Math.round(weights.experience * 100)}%)</span>
               <span className="font-medium">{Math.round(suitability.subScores.experienceScore * 100)}%</span>
             </div>
             <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
@@ -132,10 +160,10 @@ export function SuitabilityEngine({
             </div>
           </div>
 
-          {/* Language Score - 15% */}
+          {/* Language Score */}
           <div className="space-y-1">
             <div className="flex justify-between text-sm">
-              <span className="text-slate-600">Language Proficiency ({WEIGHTS.language * 100}%)</span>
+              <span className="text-slate-600">Language Proficiency ({Math.round(weights.language * 100)}%)</span>
               <span className="font-medium">{Math.round(suitability.subScores.languageScore * 100)}%</span>
             </div>
             <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
@@ -151,10 +179,10 @@ export function SuitabilityEngine({
             )}
           </div>
 
-          {/* Education Score - 10% */}
+          {/* Education Score */}
           <div className="space-y-1">
             <div className="flex justify-between text-sm">
-              <span className="text-slate-600">Education ({WEIGHTS.education * 100}%)</span>
+              <span className="text-slate-600">Education ({Math.round(weights.education * 100)}%)</span>
               <span className="font-medium">{Math.round(suitability.subScores.educationScore * 100)}%</span>
             </div>
             <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
@@ -219,7 +247,10 @@ export function SuitabilityEngine({
             {jobTitle} at {company}
           </p>
           <p className="text-xs text-slate-500 mt-1">
-            Formula: ({WEIGHTS.skills * 100}% × Skills) + ({WEIGHTS.experience * 100}% × Experience) + ({WEIGHTS.language * 100}% × Language) + ({WEIGHTS.education * 100}% × Education)
+            Formula: ({Math.round(weights.skills * 100)}% × Skills) + ({Math.round(weights.experience * 100)}% × Experience) + ({Math.round(weights.language * 100)}% × Language) + ({Math.round(weights.education * 100)}% × Education)
+          </p>
+          <p className="text-xs text-blue-600 mt-1">
+            💡 Weights are dynamically calculated based on job description signals
           </p>
         </div>
       </CardContent>

@@ -1,12 +1,13 @@
 /**
  * Suitability Engine - Mathematical CV-Job Matching System
  * 
- * Based on ATS CV Matching System logic:
- * - Skills Match: Matched Skills / Total Job Skills (50% weight)
- * - Experience Score: min(1, Candidate Years / Required Years) (25% weight)
- * - Education Score: min(1, CV Level / Job Level) (10% weight)
- * - Language Proficiency Score: Matched Languages / Required Languages (15% weight)
+ * Based on ATS CV Matching System logic with DYNAMIC WEIGHTS:
+ * - Skills Match: Matched Skills / Total Job Skills (dynamic weight, typically 30-60%)
+ * - Experience Score: min(1, Candidate Years / Required Years) (dynamic weight, typically 15-35%)
+ * - Education Score: min(1, CV Level / Job Level) (dynamic weight, typically 5-25%)
+ * - Language Proficiency Score: Matched Languages / Required Languages (dynamic weight, typically 5-25%)
  * 
+ * Weights are extracted from job description signals by AI
  * Must-Have Handling: Missing critical skills heavily reduces the score
  */
 
@@ -14,19 +15,54 @@ import {
   ExtractedProfile,
   ExtractedJobRequirements,
   SuitabilityResult,
-  SuitabilitySubScores
+  SuitabilitySubScores,
+  ScoringWeights,
+  WeightExplanation
 } from '../types';
 
-// ── Weight Configuration ────────────────────────────────────────────────────────
-const WEIGHTS = {
+// ── Default Weight Configuration (used when AI doesn't provide weights) ─────────
+const DEFAULT_WEIGHTS: ScoringWeights = {
   skills: 0.50,      // 50%
   experience: 0.25,  // 25%
   language: 0.15,    // 15%
   education: 0.10    // 10%
-} as const;
+};
 
 // Penalty multiplier when missing must-have/critical skills
 const MUST_HAVE_PENALTY_MULTIPLIER = 0.5;
+
+/**
+ * Validate and normalize weights to ensure they sum to 1.0
+ */
+function validateWeights(weights: Partial<ScoringWeights> | null): ScoringWeights {
+  if (!weights) return { ...DEFAULT_WEIGHTS };
+  
+  const w: ScoringWeights = {
+    skills: weights.skills ?? DEFAULT_WEIGHTS.skills,
+    experience: weights.experience ?? DEFAULT_WEIGHTS.experience,
+    education: weights.education ?? DEFAULT_WEIGHTS.education,
+    language: weights.language ?? DEFAULT_WEIGHTS.language
+  };
+  
+  // Ensure all weights are valid numbers between 0 and 1
+  for (const key of Object.keys(w) as (keyof ScoringWeights)[]) {
+    if (typeof w[key] !== 'number' || isNaN(w[key]) || w[key] < 0 || w[key] > 1) {
+      return { ...DEFAULT_WEIGHTS };
+    }
+  }
+  
+  // Check if weights sum to approximately 1.0 (allow small floating point errors)
+  const sum = w.skills + w.experience + w.education + w.language;
+  if (Math.abs(sum - 1.0) > 0.01) {
+    // Normalize weights to sum to 1.0
+    w.skills /= sum;
+    w.experience /= sum;
+    w.education /= sum;
+    w.language /= sum;
+  }
+  
+  return w;
+}
 
 // ── Helper Functions ────────────────────────────────────────────────────────────
 
@@ -266,12 +302,19 @@ function matchLanguages(
  * 
  * @param cvProfile - Extracted profile from candidate's CV
  * @param jobRequirements - Extracted requirements from job description
+ * @param customWeights - Optional dynamic weights extracted from job description
+ * @param weightExplanations - Optional explanations for why each weight was chosen
  * @returns SuitabilityResult with overall score and breakdown
  */
 export function calculateSuitability(
   cvProfile: ExtractedProfile,
-  jobRequirements: ExtractedJobRequirements
+  jobRequirements: ExtractedJobRequirements,
+  customWeights?: Partial<ScoringWeights> | null,
+  weightExplanations?: WeightExplanation | null
 ): SuitabilityResult {
+  // Validate and normalize weights
+  const weights = validateWeights(customWeights ?? null);
+  
   // Get CV skills (combine from profile skills and keywords)
   const cvSkills = cvProfile.skills || [];
   
@@ -323,17 +366,20 @@ export function calculateSuitability(
     languageScore: languageResult.languageScore
   };
 
-  // Final Formula: (0.5 × Skills) + (0.25 × Experience) + (0.15 × Language) + (0.10 × Education)
+  // Final Formula with DYNAMIC WEIGHTS:
+  // (skills_weight × Skills) + (experience_weight × Experience) + (language_weight × Language) + (education_weight × Education)
   const overallScore = (
-    WEIGHTS.skills * subScores.skillsScore +
-    WEIGHTS.experience * subScores.experienceScore +
-    WEIGHTS.language * subScores.languageScore +
-    WEIGHTS.education * subScores.educationScore
+    weights.skills * subScores.skillsScore +
+    weights.experience * subScores.experienceScore +
+    weights.language * subScores.languageScore +
+    weights.education * subScores.educationScore
   ) * 100;
 
   return {
     overallScore: Math.round(overallScore * 10) / 10, // Round to 1 decimal
     subScores,
+    weights, // Include the weights used in the result
+    weightExplanations: weightExplanations || undefined,
     matchedSkills: skillsResult.matchedSkills,
     missingSkills: skillsResult.missingSkills,
     missingMustHaveSkills: skillsResult.missingMustHaveSkills,
@@ -346,6 +392,7 @@ export function calculateSuitability(
 /**
  * Calculate suitability using raw keywords extracted by AI
  * This is a simplified version that uses keyword arrays directly
+ * Supports dynamic weights extracted from job description
  */
 export function calculateSuitabilityFromKeywords(
   cvKeywords: string[],
@@ -358,6 +405,8 @@ export function calculateSuitabilityFromKeywords(
     requiredEducationLevel?: number;
     candidateLanguages?: string[];
     requiredLanguages?: string[];
+    customWeights?: Partial<ScoringWeights> | null;
+    weightExplanations?: WeightExplanation | null;
   }
 ): SuitabilityResult {
   // Create profile and requirements from keywords
@@ -378,8 +427,13 @@ export function calculateSuitabilityFromKeywords(
     requiredLanguages: additionalData?.requiredLanguages
   };
 
-  return calculateSuitability(cvProfile, jobRequirements);
+  return calculateSuitability(
+    cvProfile, 
+    jobRequirements, 
+    additionalData?.customWeights,
+    additionalData?.weightExplanations
+  );
 }
 
-// Export weights for external use
-export { WEIGHTS };
+// Export default weights for external use
+export { DEFAULT_WEIGHTS };

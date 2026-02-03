@@ -43,6 +43,7 @@ Perform an ATS-style semantic analysis focused ONLY on:
 - Years of experience required vs candidate experience
 - Education requirements vs candidate education
 - Language requirements vs candidate languages
+- DYNAMIC WEIGHT ANALYSIS based on job description signals
 
 DO NOT extract:
 - Section labels
@@ -64,6 +65,26 @@ Return JSON with EXACTLY this structure:
   "jdKeywords": string[],
   "cvKeywords": string[],
   "mustHaveKeywords": string[],
+  "scoringWeights": {
+    "weights": {
+      "skills": number,
+      "experience": number,
+      "education": number,
+      "language": number
+    },
+    "explanations": {
+      "skills": string,
+      "experience": string,
+      "education": string,
+      "language": string
+    },
+    "signals": {
+      "isExperienceHeavy": boolean,
+      "isEducationRequired": boolean,
+      "isLanguageCritical": boolean,
+      "isSkillsHeavy": boolean
+    }
+  },
   "suggestions": [
     {
       "category": "Summary" | "Experience" | "Skills" | "Format",
@@ -117,6 +138,34 @@ Return JSON with EXACTLY this structure:
   }
 }
 
+WEIGHT CALCULATION RULES (weights MUST sum to 1.0):
+Analyze the job description for these signals to determine appropriate weights:
+
+1. SKILLS WEIGHT (0.30 - 0.60):
+   - Higher (0.50-0.60) if: Long technical requirements list, many specific tools/frameworks, "expert in", "proficient in"
+   - Lower (0.30-0.40) if: Few technical requirements, more focus on soft skills or experience
+
+2. EXPERIENCE WEIGHT (0.15 - 0.35):
+   - Higher (0.30-0.35) if: "5+ years", "senior", "lead", "extensive experience required"
+   - Medium (0.20-0.25) if: "2-3 years", "mid-level"
+   - Lower (0.15-0.20) if: "entry-level", "junior", "fresh graduates welcome", no years mentioned
+
+3. EDUCATION WEIGHT (0.05 - 0.25):
+   - Higher (0.20-0.25) if: "PhD required", "Master's degree required", "degree mandatory"
+   - Medium (0.10-0.15) if: "Bachelor's required", "degree preferred"
+   - Lower (0.05-0.10) if: "or equivalent experience", "degree not required", no education mentioned
+
+4. LANGUAGE WEIGHT (0.05 - 0.25):
+   - Higher (0.20-0.25) if: "Must speak Finnish", "Native English required", "bilingual", multiple languages required
+   - Medium (0.10-0.15) if: "Finnish is an advantage", specific language mentioned as preferred
+   - Lower (0.05-0.10) if: Only English required or no language requirements
+
+EXAMPLE WEIGHT DISTRIBUTIONS:
+- Senior Technical Role: skills=0.45, experience=0.30, education=0.10, language=0.15
+- Entry-Level Developer: skills=0.55, experience=0.15, education=0.15, language=0.15
+- Research Position (PhD): skills=0.35, experience=0.20, education=0.30, language=0.15
+- Finland Local Role: skills=0.40, experience=0.25, education=0.10, language=0.25
+
 STRICT INSTRUCTIONS:
 1. jdKeywords must contain 15–20 UNIQUE, ATS-relevant, role-specific terms from the job description.
 2. cvKeywords must contain ONLY keywords that ACTUALLY APPEAR in the resume text - DO NOT invent, infer, or assume any skills.
@@ -134,8 +183,10 @@ STRICT INSTRUCTIONS:
 9. requiredYearsExperience should be extracted from job description (e.g., "3+ years" = 3).
 10. ABSOLUTELY DO NOT HALLUCINATE OR INVENT skills that are not explicitly stated in the CV.
 11. If a skill is not mentioned in the CV, it should NOT appear in cvKeywords.
-12. If information is missing, use null or empty array.
-13. Output ONLY the JSON object.
+12. scoringWeights.weights MUST sum to exactly 1.0.
+13. Provide clear explanations for each weight choice based on JD signals.
+14. If information is missing, use null or empty array.
+15. Output ONLY the JSON object.
 `;
 
   try {
@@ -191,6 +242,10 @@ STRICT INSTRUCTIONS:
       mustHaveSkills: mustHaveKeywords
     };
 
+    // ── Extract dynamic weights from AI response ────────────────────────────────
+    const extractedWeights = parsed.scoringWeights?.weights || null;
+    const weightExplanations = parsed.scoringWeights?.explanations || null;
+
     // ── Calculate Suitability Score using the Mathematical Engine ───────────────
     const suitability = calculateSuitabilityFromKeywords(
       cvKeywords,
@@ -202,7 +257,9 @@ STRICT INSTRUCTIONS:
         candidateEducationLevel: extractedProfile.education?.[0]?.level,
         requiredEducationLevel: extractedJobRequirements.requiredEducationLevel,
         candidateLanguages: extractedProfile.languages?.map(l => l.language),
-        requiredLanguages: extractedJobRequirements.requiredLanguages
+        requiredLanguages: extractedJobRequirements.requiredLanguages,
+        customWeights: extractedWeights,
+        weightExplanations: weightExplanations
       }
     );
 
