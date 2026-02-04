@@ -15,8 +15,8 @@ export type SuggestionCategory =
   | 'Experience'
   | 'Skills'
   | 'Format'
-  | 'General'     // ← Added: useful for fallback / system-level messages
-  | 'Other';      // ← Optional extra: catch-all for uncategorized or future needs
+  | 'General'     // Useful for fallback / system-level messages
+  | 'Other';      // Catch-all for uncategorized or future needs
 
 export type SuggestionPriority = 'high' | 'medium' | 'low';
 
@@ -71,21 +71,22 @@ export interface AnalysisResults {
 
 /**
  * Shape of data fetched from Supabase (snake_case column names)
+ * - All fields that are required in DB but optional in mock/partial objects are marked ?
  */
 export interface JobApplication {
   id: string;
-  user_id: string;                    // foreign key to auth.users
-  job_title: string;
-  company: string;
-  location: string;
-  status: ApplicationStatus;
-  channel: ApplicationChannel;
-  application_date: string;           // ISO string from Supabase
-  job_description: string;
-  resume_name: string;
-  resume_text: string;
-  resume_file_path?: string;          // path in storage bucket
-  analysis: AnalysisResults;
+  user_id?: string;                    // optional in mock, required from Supabase
+  job_title?: string;                  // optional in mock
+  company?: string;
+  location?: string;
+  status?: ApplicationStatus;
+  channel?: ApplicationChannel;
+  application_date: Date | string | null;   // supports Date (in code) or string (from DB)
+  job_description?: string;            // optional in mock
+  resume_name?: string;                // optional in mock
+  resume_text?: string;                // optional in mock
+  resume_file_path?: string;           // path in storage bucket
+  analysis?: AnalysisResults;          // optional (some apps may not have AI yet)
   created_at?: string;
   updated_at?: string;
 }

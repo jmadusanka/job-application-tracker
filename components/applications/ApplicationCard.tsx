@@ -59,16 +59,16 @@ export function ApplicationCard({ application }: ApplicationCardProps) {
     >
       <div className="flex items-start justify-between mb-2">
         <div className="flex-1">
-          <h3 className="font-semibold text-slate-900 mb-1">{application.jobTitle}</h3>
-          <p className="text-sm text-slate-600 font-medium">{application.company}</p>
+          <h3 className="font-semibold text-slate-900 mb-1">{application.job_title || 'Untitled'}</h3>
+          <p className="text-sm text-slate-600 font-medium">{application.company || 'Unknown Company'}</p>
         </div>
         <div className="relative">
           <Badge 
-            variant={getStatusVariant(application.status)}
+            variant={getStatusVariant(application.status ?? 'Analyzed')}
             className="cursor-pointer hover:opacity-80"
             onClick={handleStatusClick}
           >
-            {application.status}
+            {application.status ?? 'Unknown'}
           </Badge>
           {showStatusMenu && (
             <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 min-w-[110px] py-1">
@@ -110,22 +110,30 @@ export function ApplicationCard({ application }: ApplicationCardProps) {
       <div className="space-y-1.5 text-xs text-slate-500 mb-3">
         <div className="flex items-center gap-1.5">
           <MapPin className="w-3.5 h-3.5" />
-          <span>{application.location}</span>
+          <span>{application.location || 'N/A'}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <Briefcase className="w-3.5 h-3.5" />
-          <span>{application.channel}</span>
+          <span>{application.channel || 'Unknown'}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <Calendar className="w-3.5 h-3.5" />
-          <span>{application.applicationDate.toLocaleDateString()}</span>
+          <span>
+            {application.application_date
+              ? new Date(application.application_date).toLocaleDateString('en-GB', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                })
+              : 'N/A'}
+          </span>
         </div>
       </div>
 
       <div className="flex items-center justify-between pt-3 border-t border-slate-100">
         <span className="text-xs text-slate-600">Match Score</span>
-        <span className={cn('text-lg font-bold', getMatchColor(application.analysis.overallMatch))}>
-          {application.analysis.overallMatch}%
+        <span className={cn('text-lg font-bold', getMatchColor(application.analysis?.overallMatch ?? 0))}>
+          {application.analysis?.overallMatch ?? 0}%
         </span>
       </div>
     </div>

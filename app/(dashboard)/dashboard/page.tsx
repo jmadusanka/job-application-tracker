@@ -31,7 +31,7 @@ export default function DashboardPage() {
     return null;
   }
 
-  // Safe resume name with fallback (using snake_case)
+  // Safe resume name with fallback
   const resumeName = selectedApplication?.resume_name ?? 'No resume uploaded';
   const shortResumeName = resumeName.length > 25 
     ? `${resumeName.substring(0, 25)}...` 
@@ -55,17 +55,27 @@ export default function DashboardPage() {
                   <div className="flex items-start justify-between">
                     <div>
                       <h2 className="text-2xl font-bold text-slate-900 mb-1">
-                        {selectedApplication.job_title}
+                        {selectedApplication.job_title || 'Untitled Application'}
                       </h2>
                       <p className="text-lg text-slate-600 mb-2">
-                        {selectedApplication.company}
+                        {selectedApplication.company || 'Unknown Company'}
                       </p>
                       <div className="flex items-center gap-4 text-xs text-slate-500">
-                        <span>📍 {selectedApplication.location}</span>
-                        <span>📅 Applied {new Date(selectedApplication.application_date).toLocaleDateString()}</span>
+                        <span>📍 {selectedApplication.location || 'N/A'}</span>
                         <span>
-                          📄 <a
-                            href={`/uploads/resumes/${selectedApplication.resume_file_path || resumeName}`}
+                          📅 Applied{' '}
+                          {selectedApplication.application_date
+                            ? new Date(selectedApplication.application_date).toLocaleDateString('en-GB', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                              })
+                            : 'N/A'}
+                        </span>
+                        <span>
+                          📄{' '}
+                          <a
+                            href={`/uploads/resumes/${selectedApplication.resume_file_path || 'resume.pdf'}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-blue-600 hover:underline"
@@ -75,7 +85,8 @@ export default function DashboardPage() {
                           </a>
                         </span>
                         <span>
-                          📋 <button
+                          📋{' '}
+                          <button
                             onClick={() => setShowJobDescription(true)}
                             className="text-blue-600 hover:underline"
                           >
@@ -89,30 +100,38 @@ export default function DashboardPage() {
               </Card>
 
               {/* Overall Match Score */}
-              <OverallMatchScore score={selectedApplication.analysis.overallMatch} />
+              <OverallMatchScore score={selectedApplication?.analysis?.overallMatch ?? 0} />
 
               {/* Sub-Scores */}
-              <SubScores subScores={selectedApplication.analysis.subScores} />
+              <SubScores 
+                subScores={selectedApplication?.analysis?.subScores ?? {
+                  skillsMatch: 50,
+                  experienceMatch: 50,
+                  languageLocationMatch: 90
+                }} 
+              />
 
               {/* Suitability Engine */}
               <SuitabilityEngine />
 
               {/* Skills Analysis */}
               <SkillsAnalysis
-                matchedSkills={selectedApplication.analysis.matchedSkills}
-                missingSkills={selectedApplication.analysis.missingSkills}
-                jdKeywords={selectedApplication.analysis.jdKeywords}
-                cvKeywords={selectedApplication.analysis.cvKeywords}
+                matchedSkills={selectedApplication?.analysis?.matchedSkills ?? []}
+                missingSkills={selectedApplication?.analysis?.missingSkills ?? []}
+                jdKeywords={selectedApplication?.analysis?.jdKeywords ?? []}
+                cvKeywords={selectedApplication?.analysis?.cvKeywords ?? []}
               />
 
               {/* ATS Compatibility */}
               <ATSCompatibility
-                atsScore={selectedApplication.analysis.atsScore}
-                atsIssues={selectedApplication.analysis.atsIssues}
+                atsScore={selectedApplication?.analysis?.atsScore ?? 70}
+                atsIssues={selectedApplication?.analysis?.atsIssues ?? []}
               />
 
               {/* Improvement Suggestions */}
-              <ImprovementSuggestions suggestions={selectedApplication.analysis.suggestions} />
+              <ImprovementSuggestions 
+                suggestions={selectedApplication?.analysis?.suggestions ?? []} 
+              />
             </>
           ) : (
             <Card className="h-full flex items-center justify-center">
@@ -151,7 +170,7 @@ export default function DashboardPage() {
             </div>
             <div className="p-6 overflow-y-auto max-h-[calc(80vh-80px)]">
               <pre className="whitespace-pre-wrap text-sm text-slate-700 font-sans">
-                {selectedApplication.job_description}
+                {selectedApplication.job_description || 'No description available'}
               </pre>
             </div>
           </div>
