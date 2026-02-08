@@ -37,6 +37,97 @@ export interface Suggestion {
   priority: SuggestionPriority;
 }
 
+// ── Extracted Profile from CV ───────────────────────────────────────────────────
+export interface ExtractedProfile {
+  personalInfo?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    location?: string;
+    linkedin?: string;
+    portfolio?: string;
+  };
+  summary?: string;
+  education?: {
+    degree?: string;
+    field?: string;
+    institution?: string;
+    year?: number;
+    level?: number; // 1=High School, 2=Associate, 3=Bachelor, 4=Master, 5=PhD
+  }[];
+  experience?: {
+    title?: string;
+    company?: string;
+    duration?: string;
+    yearsOfExperience?: number;
+    description?: string;
+  }[];
+  skills?: string[];
+  languages?: {
+    language: string;
+    proficiency?: 'native' | 'fluent' | 'intermediate' | 'basic';
+  }[];
+  totalYearsExperience?: number;
+}
+
+// ── Extracted Requirements from Job Description ────────────────────────────────
+export interface ExtractedJobRequirements {
+  requiredSkills: string[];
+  preferredSkills?: string[];
+  mustHaveSkills?: string[]; // Critical skills that heavily impact score
+  requiredYearsExperience?: number;
+  requiredEducationLevel?: number; // 1=High School, 2=Associate, 3=Bachelor, 4=Master, 5=PhD
+  requiredLanguages?: string[];
+}
+
+// ── Dynamic Scoring Weights (extracted from Job Description) ───────────────────
+export interface ScoringWeights {
+  skills: number;      // 0-1, typically 0.30-0.60
+  experience: number;  // 0-1, typically 0.15-0.35
+  education: number;   // 0-1, typically 0.05-0.25
+  language: number;    // 0-1, typically 0.05-0.25
+}
+
+export interface WeightExplanation {
+  skills: string;      // Why this weight was chosen
+  experience: string;
+  education: string;
+  language: string;
+}
+
+export interface ExtractedWeights {
+  weights: ScoringWeights;
+  explanations: WeightExplanation;
+  signals: {
+    isExperienceHeavy: boolean;    // "5+ years required", "senior role"
+    isEducationRequired: boolean;   // "degree required", "PhD preferred"
+    isLanguageCritical: boolean;    // "must speak Finnish", "native English"
+    isSkillsHeavy: boolean;         // Long list of technical requirements
+  };
+}
+
+// ── Suitability Sub-Scores ──────────────────────────────────────────────────────
+export interface SuitabilitySubScores {
+  skillsScore: number;      // 0-1
+  experienceScore: number;  // 0-1
+  educationScore: number;   // 0-1
+  languageScore: number;    // 0-1
+}
+
+// ── Suitability Result ──────────────────────────────────────────────────────────
+export interface SuitabilityResult {
+  overallScore: number;           // 0-100 percentage
+  subScores: SuitabilitySubScores;
+  weights: ScoringWeights;        // The weights used for this calculation
+  weightExplanations?: WeightExplanation;
+  matchedSkills: string[];
+  missingSkills: string[];
+  missingMustHaveSkills: string[];
+  matchedLanguages: string[];
+  missingLanguages: string[];
+  hasMustHavePenalty: boolean;
+}
+
 export interface AnalysisResults {
   overallMatch: number; // 0-100
   subScores: {
@@ -67,6 +158,10 @@ export interface AnalysisResults {
     experience?: unknown[];    // could be typed more strictly later
     skills?: string[];
   };
+  
+  extractedProfile?: ExtractedProfile;
+  extractedJobRequirements?: ExtractedJobRequirements;
+  suitability?: SuitabilityResult;
 }
 
 /**
