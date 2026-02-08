@@ -24,7 +24,7 @@ export function saveApplication(input: NewApplicationInput): JobApplication {
   const newApp: JobApplication = {
     id: Date.now().toString(),
     ...input,
-    applicationDate: new Date(),
+    application_date: new Date(),
     analysis: {
       overallMatch: 0,
       subScores: {
