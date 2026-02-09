@@ -1,58 +1,121 @@
-import { JobApplication, NewApplicationInput, SkillGap } from '@/lib/types';
+// lib/services/applicationService.ts
+
+import { JobApplication, NewApplicationInput, SkillGap, AnalysisResults } from '@/lib/types';
 import { extractSkills, matchKeywords } from '@/lib/analyzers/atsAnalyzer';
 
-// Save application (for now just returns mock data)
+/**
+ * Creates and returns a new JobApplication object with basic ATS analysis.
+ * This is a client-side / mock version — in production, move real analysis + DB save
+ * to server actions or API routes.
+ */
 export function saveApplication(input: NewApplicationInput): JobApplication {
-  // Extract keywords from job description and resume
+  // Guard against empty/missing inputs
+  const jobDescription = input.jobDescription?.trim() || '';
+  const resumeText = input.resumeText?.trim() || '';
 
-  // Extract original-case keywords
-  const jdKeywordsRaw = extractSkills(input.jobDescription);
-  const cvKeywordsRaw = extractSkills(input.resumeText);
+  // Extract keywords
+  const jdKeywordsRaw = extractSkills(jobDescription);
+  const cvKeywordsRaw = extractSkills(resumeText);
 
-  // Lowercase versions for matching
-  const jdKeywords = jdKeywordsRaw.map(k => k.trim()).filter(Boolean);
-  const cvKeywords = cvKeywordsRaw.map(k => k.trim()).filter(Boolean);
+  // Cleaned versions
+  const jdKeywords = jdKeywordsRaw.map(k => k.trim()).filter((k): k is string => !!k);
+  const cvKeywords = cvKeywordsRaw.map(k => k.trim()).filter((k): k is string => !!k);
+
   const jdKeywordsLower = jdKeywords.map(k => k.toLowerCase());
   const cvKeywordsLower = cvKeywords.map(k => k.toLowerCase());
 
-  // Match using lowercased arrays, but return/display original-case
-  const { matched, missing } = matchKeywords(cvKeywordsLower, jdKeywordsLower);
-  // Map back to original-case for display
-  const matchedSkills = matched.map(lc => jdKeywords[jdKeywordsLower.indexOf(lc)]).filter(Boolean);
-  const missingSkills: SkillGap[] = missing.map(lc => ({ skill: jdKeywords[jdKeywordsLower.indexOf(lc)], priority: 'Required' as const })).filter(gap => !!gap.skill);
+  // Match using lowercase, then map back to original case
+  const { matched: matchedLower, missing: missingLower } = matchKeywords(
+    cvKeywordsLower,
+    jdKeywordsLower
+  );
 
+  // Map matched back to original-case JD keywords
+  const matchedSkills: string[] = matchedLower
+    .map(lc => jdKeywords[jdKeywordsLower.indexOf(lc)])
+    .filter((k): k is string => !!k);
+
+  // Build missingSkills – safe version with explicit null check + type guard
+  const missingSkills: SkillGap[] = missingLower
+    .map((lc): SkillGap | null => {
+      const originalSkill = jdKeywords[jdKeywordsLower.indexOf(lc)];
+      if (!originalSkill) {
+        return null;
+      }
+      return {
+        skill: originalSkill,
+        priority: 'Required'
+      };
+    })
+    .filter((gap): gap is SkillGap => gap !== null);   // ← proper type predicate
+
+  // Build full valid AnalysisResults
+  const analysis: AnalysisResults = {
+    overallMatch: 0,  // Will be updated by real engine later
+    subScores: {
+      skillsMatch: jdKeywords.length > 0
+        ? Math.round((matchedSkills.length / jdKeywords.length) * 100)
+        : 0,
+      experienceMatch: 50,           // Placeholder
+      languageLocationMatch: 80      // Placeholder
+    },
+    matchedSkills,
+    missingSkills,
+    atsScore: Math.max(0, 100 - (missingSkills.length * 10)),
+    atsIssues: [],
+    suggestions: missingSkills.length > 0
+      ? [{
+          category: 'Skills',
+          text: `Add missing skills: ${missingSkills.slice(0, 3).map(s => s.skill).join(', ')}${missingSkills.length > 3 ? '...' : ''}`,
+          priority: 'high'
+        }]
+      : [],
+    jdKeywords,
+    cvKeywords,
+    mustHaveSkills: []  // Required field - empty for now
+  };
+
+  // Create full JobApplication shape
   const newApp: JobApplication = {
-    id: Date.now().toString(),
-    ...input,
+    id: crypto.randomUUID(),  // Modern, collision-safe ID (browser/Node 14+)
+    user_id: undefined,       // Set on real save
+    job_title: input.jobTitle,
+    company: input.company,
+    location: input.location,
+    status: input.status,
+    channel: input.channel,
     application_date: new Date(),
-    analysis: {
-      overallMatch: 0,
-      subScores: {
-        skillsMatch: jdKeywords.length > 0 ? Math.round((matchedSkills.length / jdKeywords.length) * 100) : 0,
-        experienceMatch: 0,
-        languageLocationMatch: 0
-      },
-      matchedSkills,
-      missingSkills,
-      atsScore: 0,
-      atsIssues: [],
-      suggestions: [],
-      jdKeywords,
-      cvKeywords
-    }
+    job_description: input.jobDescription,
+    resume_name: input.resumeName,
+    resume_text: input.resumeText,
+    resume_file_path: input.resume_file_path,
+    analysis,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
   };
 
   return newApp;
 }
 
-// Get all applications (placeholder)
+/**
+ * Placeholder: Fetch all applications (replace with Supabase query)
+ */
 export function getAllApplications(): JobApplication[] {
   return [];
 }
 
-// Update application status
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function updateApplicationStatus(_id: string, _status: string): boolean {
-  // TODO: Implement actual storage
+/**
+ * Placeholder: Update application status (replace with Supabase update)
+ */
+export function updateApplicationStatus(id: string, status: string): boolean {
+  console.log(`[Mock] Updating application ${id} to status: ${status}`);
+  return true;
+}
+
+/**
+ * Optional mock delete
+ */
+export function deleteApplication(id: string): boolean {
+  console.log(`[Mock] Deleting application ${id}`);
   return true;
 }

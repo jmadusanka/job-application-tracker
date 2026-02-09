@@ -1,130 +1,197 @@
-// Keyword matching between two texts
+// lib/analyzers/atsAnalyzer.ts
+
+import { ATSIssue, AnalysisResults, SkillGap } from '@/lib/types';
+
+// ──────────────────────────────────────────────────────────────
+// Keyword matching between two arrays (resume vs job description)
+// ──────────────────────────────────────────────────────────────
 /**
- * Matches keywords between two arrays or texts.
- * @param sourceKeywords Array of keywords from source (e.g., resume)
- * @param targetKeywords Array of keywords from target (e.g., job description)
- * @returns { matched: string[], missing: string[] }
+ * Performs case-insensitive partial matching between source (resume) and target (job desc) keywords.
+ * A keyword from target is considered matched if any source keyword contains it or vice versa.
  */
-// Partial/fuzzy matching: consider a match if one phrase contains the other (case-insensitive)
-export function matchKeywords(sourceKeywords: string[], targetKeywords: string[]) {
+export function matchKeywords(
+  sourceKeywords: string[],   // e.g. extracted from resume
+  targetKeywords: string[]    // e.g. extracted from job description
+): { matched: string[]; missing: string[] } {
   const matched: string[] = [];
   const missing: string[] = [];
-  targetKeywords.forEach(target => {
-    const found = sourceKeywords.some(src =>
-      src.includes(target) || target.includes(src)
+
+  const sourceLower = sourceKeywords.map(s => s.toLowerCase().trim());
+  const targetLowerSet = new Set(targetKeywords.map(t => t.toLowerCase().trim()));
+
+  targetKeywords.forEach((target) => {
+    const targetLower = target.toLowerCase().trim();
+
+    const isMatched = sourceLower.some(src =>
+      src.includes(targetLower) || targetLower.includes(src)
     );
-    if (found) {
+
+    if (isMatched) {
       matched.push(target);
     } else {
       missing.push(target);
     }
   });
+
   return { matched, missing };
 }
-import { ATSIssue, AnalysisResults, SkillGap } from '@/lib/types';
 
-// Analyze ATS compatibility
+// ──────────────────────────────────────────────────────────────
+// Main ATS compatibility analysis function
+// ──────────────────────────────────────────────────────────────
 export function analyzeATS(resumeText: string, jobDescription: string): AnalysisResults {
-  // Extract skills from job description
+  // Extract keywords/skills (very basic version – can be improved later)
   const requiredSkills = extractSkills(jobDescription);
   const resumeSkills = extractSkills(resumeText);
 
-  // Calculate matches
-  const matchedSkills = requiredSkills.filter(skill =>
-    resumeSkills.some(rs => rs.toLowerCase() === skill.toLowerCase())
+  // Match keywords
+  const { matched, missing } = matchKeywords(resumeSkills, requiredSkills);
+
+  const matchedSkills = matched;
+
+  const missingSkills: SkillGap[] = missing.map(skill => ({
+    skill,
+    priority: 'Required' as const,
+  }));
+
+  // Simple score calculations
+  const skillsMatch =
+    requiredSkills.length > 0
+      ? Math.round((matched.length / requiredSkills.length) * 100)
+      : 0;
+
+  // Placeholder values – replace with real logic when you have experience/language extraction
+  const experienceMatch = 75;
+  const languageLocationMatch = 80;
+
+  const overallMatch = Math.round(
+    (skillsMatch + experienceMatch + languageLocationMatch) / 3
   );
 
-  const missingSkills: SkillGap[] = requiredSkills
-    .filter(skill => !matchedSkills.includes(skill))
-    .map(skill => ({ skill, priority: 'Required' as const }));
-
-  // Calculate scores
-  const skillsMatch = requiredSkills.length > 0
-    ? Math.round((matchedSkills.length / requiredSkills.length) * 100)
-    : 0;
-
-  const experienceMatch = 75; // Placeholder
-  const languageLocationMatch = 80; // Placeholder
-  const overallMatch = Math.round((skillsMatch + experienceMatch + languageLocationMatch) / 3);
-
-  // ATS issues
+  // Detect common ATS formatting/structure issues
   const atsIssues = detectATSIssues(resumeText);
-  const atsScore = Math.max(0, 100 - (atsIssues.length * 10));
 
+  const atsScore = Math.max(0, 100 - atsIssues.length * 10);
+
+  // Generate actionable suggestions
+  const suggestions = generateSuggestions(missingSkills, atsIssues);
+
+  // Return complete AnalysisResults shape (all required fields included)
   return {
     overallMatch,
     subScores: {
       skillsMatch,
       experienceMatch,
-      languageLocationMatch
+      languageLocationMatch,
     },
     matchedSkills,
     missingSkills,
     atsScore,
     atsIssues,
-    suggestions: generateSuggestions(missingSkills, atsIssues),
-    jdKeywords: [],
-    cvKeywords: []
+    suggestions,
+    jdKeywords: requiredSkills.slice(0, 20),     // top keywords from JD
+    cvKeywords: resumeSkills.slice(0, 20),       // top keywords from resume
+    mustHaveSkills: requiredSkills.slice(0, 8),  // example: first 8 as must-have
+    // Optional richer fields (can be filled later or left undefined)
+    extractedProfile: undefined,
+    extractedJobRequirements: undefined,
+    suitability: undefined,
   };
 }
 
-// Extract keywords/phrases from text (improved for multi-word and real-world phrases)
-// This is a simple phrase extraction: split by line, semicolon, or comma, then clean up
+// ──────────────────────────────────────────────────────────────
+// Very basic skill/phrase extraction
+// ──────────────────────────────────────────────────────────────
 export function extractSkills(text: string): string[] {
-  if (!text) return [];
-  // Split by newlines, semicolons, commas, and periods
-  let phrases = text
-    .split(/\n|;|,|\.|\r/)
+  if (!text?.trim()) return [];
+
+  // Split on common separators, clean, remove very short/generic words
+  const phrases = text
+    .split(/[\n;,.\r•|–—−]/)
     .map(s => s.trim().toLowerCase())
     .filter(Boolean)
-    .filter(s => s.length > 2 && !/^(and|or|the|a|an|to|for|with|in|on|by|of|at|as|is|are|was|were|be|been|has|have|had)$/.test(s));
+    .filter(s => s.length > 2)
+    .filter(s => !/^(and|or|the|a|an|to|for|with|in|on|by|of|at|as|is|are|was|were|be|been|has|have|had|this|that|these|those)$/.test(s));
 
-  // Remove duplicates
-  phrases = Array.from(new Set(phrases));
-  return phrases;
+  // Remove duplicates and sort by length (longer phrases usually more specific)
+  const unique = Array.from(new Set(phrases));
+  unique.sort((a, b) => b.length - a.length);
+
+  return unique;
 }
 
-// Detect ATS compatibility issues
+// ──────────────────────────────────────────────────────────────
+// Detect common ATS-related formatting/structure issues
+// ──────────────────────────────────────────────────────────────
 function detectATSIssues(resumeText: string): ATSIssue[] {
   const issues: ATSIssue[] = [];
 
-  if (resumeText.length < 100) {
+  const lower = resumeText.toLowerCase();
+
+  // Too short → probably not a real resume
+  if (resumeText.length < 150) {
     issues.push({
       type: 'structure',
       severity: 'high',
-      message: 'Resume text is too short'
+      message: 'Resume content is too short – likely parsing or upload issue',
     });
   }
 
-  // Check for common ATS problems
-  if (!/email|@/.test(resumeText.toLowerCase())) {
+  // No contact info (very rough check)
+  if (!/(@|email|tel:|phone|linkedin|github|portfolio)/.test(lower)) {
     issues.push({
       type: 'structure',
       severity: 'medium',
-      message: 'No email address found'
+      message: 'No contact information (email, phone, LinkedIn, etc.) detected',
+    });
+  }
+
+  // Tables / complex formatting warning (very basic)
+  if (/(table|tabular|column|row)/i.test(lower) || resumeText.includes('│') || resumeText.includes('└')) {
+    issues.push({
+      type: 'formatting',
+      severity: 'medium',
+      message: 'Possible table or complex layout – ATS may not parse correctly',
     });
   }
 
   return issues;
 }
 
-// Generate improvement suggestions
-function generateSuggestions(missingSkills: SkillGap[], issues: ATSIssue[]) {
-  const suggestions = [];
+// ──────────────────────────────────────────────────────────────
+// Generate actionable improvement suggestions
+// ──────────────────────────────────────────────────────────────
+function generateSuggestions(
+  missingSkills: SkillGap[],
+  issues: ATSIssue[]
+): Array<{ category: 'Skills' | 'Format' | 'General'; text: string; priority: 'high' | 'medium' | 'low' }> {
+  const suggestions: any[] = [];
 
+  // Skills suggestions
   if (missingSkills.length > 0) {
+    const topMissing = missingSkills.slice(0, 4).map(s => s.skill).join(', ');
     suggestions.push({
       category: 'Skills' as const,
-      text: `Add missing skills: ${missingSkills.slice(0, 3).map(s => s.skill).join(', ')}`,
-      priority: 'high' as const
+      text: `Add missing key skills: ${topMissing}${missingSkills.length > 4 ? ' and others' : ''}`,
+      priority: 'high' as const,
     });
   }
 
+  // Format / structure issues
   if (issues.length > 0) {
     suggestions.push({
       category: 'Format' as const,
-      text: 'Improve ATS compatibility by fixing detected issues',
-      priority: 'high' as const
+      text: 'Fix ATS compatibility issues (short content, missing contact info, possible tables)',
+      priority: 'high' as const,
+    });
+  }
+
+  // Fallback suggestion if almost nothing found
+  if (suggestions.length === 0) {
+    suggestions.push({
+      category: 'General' as const,
+      text: 'Resume looks good – consider tailoring keywords more closely to the job',
+      priority: 'medium' as const,
     });
   }
 

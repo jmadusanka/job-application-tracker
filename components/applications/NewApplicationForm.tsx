@@ -1,6 +1,17 @@
 'use client';
 
 import { useState, FormEvent, ChangeEvent } from 'react';
+import { useApplications } from '@/context/ApplicationContext';
+import { useSupabase } from '@/context/SupabaseProvider';
+import { NewApplicationInput, ApplicationStatus, ApplicationChannel } from '@/lib/types';
+import { generateAnalysis } from '@/lib/analysis';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { X, Upload, Loader2 } from 'lucide-react';
+
 // List of previously uploaded CVs (from uploads/resumes)
 const previouslyUploadedCVs = [
   "1769622884270-CV_Dinesh_20.10.2022-(1).pdf",
@@ -20,17 +31,6 @@ const previouslyUploadedCVs = [
   "1769975739060-CV_Dinesh_20.10.2022-(1).pdf",
   "1769976167586-CV_Dinesh_20.10.2022-(1).pdf"
 ];
-import { useApplications } from '@/context/ApplicationContext';
-import { useSupabase } from '@/context/SupabaseProvider';
-import { NewApplicationInput, ApplicationStatus, ApplicationChannel } from '@/lib/types';
-import { generateAnalysis } from '@/lib/analysis';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { X, Upload, Loader2 } from 'lucide-react';
 
 interface NewApplicationFormProps {
   onClose: () => void;
@@ -61,13 +61,11 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validate file type
       const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
       if (!validTypes.includes(file.type)) {
         setErrorMessage('Please upload a PDF or DOC/DOCX file');
         return;
       }
-      // Validate file size (5MB max)
       if (file.size > 5 * 1024 * 1024) {
         setErrorMessage('File size must be less than 5MB');
         return;
@@ -100,17 +98,12 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
     let resumeText = '';
     let resumeFilePath: string | undefined = undefined;
 
-    // Upload and parse resume server-side if file selected
-    if (selectedFile) {
-    // Upload resume if file selected
-    let extractedText = '';
+    // Handle resume selection/upload
     if (useExistingCV && selectedExistingCV) {
-      // Use the selected existing CV filename
-      formData.resumeName = selectedExistingCV;
-      // Optionally, fetch extractedText from server if needed
-      extractedText = '';
+      resumeName = selectedExistingCV;
+      // If you need to fetch text from server for existing CV → do it here
+      resumeText = ''; // placeholder – add real fetch if needed
     } else if (selectedFile) {
-      setUploading(true);
       try {
         const uploadFormData = new FormData();
         uploadFormData.append('file', selectedFile);
@@ -143,7 +136,7 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
     setUploading(false);
     setAnalyzing(true);
 
-    // Run real AI analysis
+    // Run AI analysis
     let analysis;
     try {
       analysis = await generateAnalysis(
@@ -160,7 +153,7 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
       return;
     }
 
-    // Save application to Supabase
+    // Save to Supabase
     try {
       await addApplication({
         jobTitle: formData.jobTitle,
@@ -180,9 +173,9 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
     } catch (error) {
       console.error('Save error:', error);
       setErrorMessage('Failed to save application');
+    } finally {
+      setAnalyzing(false);
     }
-
-    setAnalyzing(false);
   };
 
   return (
@@ -199,6 +192,7 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
             </Button>
           </div>
         </CardHeader>
+
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -207,7 +201,7 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
                 <Input
                   id="jobTitle"
                   placeholder="e.g., Senior Frontend Developer"
-                  value={formData.jobTitle}
+                  value={formData.jobTitle ?? ''}
                   onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
                   required
                 />
@@ -218,26 +212,19 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
                 <Input
                   id="company"
                   placeholder="e.g., TechCorp"
-                  value={formData.company}
+                  value={formData.company ?? ''}
                   onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                   required
                 />
               </div>
             </div>
 
-
-
-
-
-
-
-
             <div className="space-y-2">
               <Label htmlFor="location">Location *</Label>
               <Input
                 id="location"
                 placeholder="e.g., San Francisco, CA or Remote"
-                value={formData.location}
+                value={formData.location ?? ''}
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                 required
               />
@@ -246,8 +233,9 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
-                <Select
+                <select
                   id="status"
+                  className="w-full border rounded px-3 py-2"
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value as ApplicationStatus })}
                 >
@@ -256,20 +244,21 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
                   <option value="Interview">Interview</option>
                   <option value="Offer">Offer</option>
                   <option value="Rejected">Rejected</option>
-                </Select>
+                </select>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="channel">Application Channel</Label>
-                <Select
+                <select
                   id="channel"
+                  className="w-full border rounded px-3 py-2"
                   value={formData.channel}
                   onChange={(e) => setFormData({ ...formData, channel: e.target.value as ApplicationChannel })}
                 >
                   <option value="Company Portal">Company Portal</option>
                   <option value="LinkedIn">LinkedIn</option>
                   <option value="Email">Email</option>
-                </Select>
+                </select>
               </div>
             </div>
 
@@ -278,7 +267,7 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
               <Textarea
                 id="jobDescription"
                 placeholder="Paste the full job description here..."
-                value={formData.jobDescription}
+                value={formData.jobDescription ?? ''}
                 onChange={(e) => setFormData({ ...formData, jobDescription: e.target.value })}
                 className="min-h-[200px]"
                 required
@@ -288,23 +277,27 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
               </p>
             </div>
 
-            {/* Existing CV selection - moved to just above Resume upload */}
             <div className="space-y-2">
               <Label htmlFor="existingCV">Use Previously Uploaded CV</Label>
               <select
                 id="existingCV"
-                className="w-full border rounded px-2 py-1"
+                className="w-full border rounded px-3 py-2"
                 value={selectedExistingCV}
-                onChange={e => {
-                  setSelectedExistingCV(e.target.value);
-                  setUseExistingCV(!!e.target.value);
-                  setSelectedFile(null);
-                  setFormData({ ...formData, resumeName: e.target.value });
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedExistingCV(val);
+                  setUseExistingCV(!!val);
+                  if (val) {
+                    setSelectedFile(null);
+                    setFormData(prev => ({ ...prev, resumeName: val }));
+                  }
                 }}
               >
                 <option value="">-- Select a file --</option>
                 {previouslyUploadedCVs.map(filename => (
-                  <option key={filename} value={filename}>{filename}</option>
+                  <option key={filename} value={filename}>
+                    {filename}
+                  </option>
                 ))}
               </select>
               <p className="text-xs text-slate-500">
@@ -327,9 +320,7 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
                   variant="outline"
                   size="sm"
                   onClick={() => document.getElementById('fileInput')?.click()}
-                  disabled={uploading || analyzing}
-                  onClick={() => !useExistingCV && document.getElementById('fileInput')?.click()}
-                  disabled={useExistingCV}
+                  disabled={uploading || analyzing || useExistingCV}
                 >
                   <Upload className="w-4 h-4 mr-2" />
                   Browse
