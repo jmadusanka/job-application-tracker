@@ -20,22 +20,22 @@ import {
   WeightExplanation
 } from '../types';
 
-// ── Default Weight Configuration (used when AI doesn't provide weights) ─────────
+// ── Default Weight Configuration (fallback when AI doesn't provide weights) ─────────
 const DEFAULT_WEIGHTS: ScoringWeights = {
   skills: 0.50,      // 50%
   experience: 0.25,  // 25%
-  language: 0.15,    // 15%
-  education: 0.10    // 10%
+  education: 0.10,   // 10%
+  language: 0.15     // 15%
 };
 
 // Penalty multiplier when missing must-have/critical skills
 const MUST_HAVE_PENALTY_MULTIPLIER = 0.5;
 
 /**
- * Validate and normalize weights to ensure they sum to 1.0
+ * Validate and normalize weights to ensure they sum to ~1.0 (±0.01 tolerance)
  */
-function validateWeights(weights: Partial<ScoringWeights> | null): ScoringWeights {
-  if (!weights) return { ...DEFAULT_WEIGHTS };
+function validateWeights(weights: Partial<ScoringWeights> | null | undefined): ScoringWeights {
+  if (weights == null) return { ...DEFAULT_WEIGHTS };
   
   const w: ScoringWeights = {
     skills: weights.skills ?? DEFAULT_WEIGHTS.skills,
@@ -44,17 +44,17 @@ function validateWeights(weights: Partial<ScoringWeights> | null): ScoringWeight
     language: weights.language ?? DEFAULT_WEIGHTS.language
   };
   
-  // Ensure all weights are valid numbers between 0 and 1
+  // Validate each weight is a number between 0 and 1
   for (const key of Object.keys(w) as (keyof ScoringWeights)[]) {
-    if (typeof w[key] !== 'number' || isNaN(w[key]) || w[key] < 0 || w[key] > 1) {
+    const val = w[key];
+    if (typeof val !== 'number' || isNaN(val) || val < 0 || val > 1) {
       return { ...DEFAULT_WEIGHTS };
     }
   }
   
-  // Check if weights sum to approximately 1.0 (allow small floating point errors)
+  // Normalize if sum is off (floating-point safety)
   const sum = w.skills + w.experience + w.education + w.language;
   if (Math.abs(sum - 1.0) > 0.01) {
-    // Normalize weights to sum to 1.0
     w.skills /= sum;
     w.experience /= sum;
     w.education /= sum;
@@ -66,9 +66,6 @@ function validateWeights(weights: Partial<ScoringWeights> | null): ScoringWeight
 
 // ── Helper Functions ────────────────────────────────────────────────────────────
 
-/**
- * Normalize a keyword for comparison (lowercase, trim, remove special chars)
- */
 function normalizeKeyword(keyword: string): string {
   return keyword
     .toLowerCase()
@@ -77,23 +74,15 @@ function normalizeKeyword(keyword: string): string {
     .replace(/\s+/g, ' ');
 }
 
-/**
- * Check if two keywords match (exact or partial match)
- * Handles cases like "React.js" matching "React" or "JavaScript" matching "JS"
- */
 function keywordsMatch(cvKeyword: string, jdKeyword: string): boolean {
   const cv = normalizeKeyword(cvKeyword);
   const jd = normalizeKeyword(jdKeyword);
   
-  // Exact match
   if (cv === jd) return true;
-  
-  // Partial match (one contains the other)
   if (cv.includes(jd) || jd.includes(cv)) return true;
   
-  // Common abbreviations and aliases
   const aliases: Record<string, string[]> = {
-    'javascript': ['js', 'ecmascript', 'es6', 'es2015'],
+    'javascript': ['js', 'ecmascript', 'es6'],
     'typescript': ['ts'],
     'react': ['reactjs', 'react.js'],
     'node': ['nodejs', 'node.js'],
@@ -106,27 +95,25 @@ function keywordsMatch(cvKeyword: string, jdKeyword: string): boolean {
     'postgresql': ['postgres', 'psql'],
     'mongodb': ['mongo'],
     'kubernetes': ['k8s'],
-    'amazon web services': ['aws'],
-    'google cloud platform': ['gcp'],
-    'continuous integration': ['ci', 'ci/cd'],
-    'machine learning': ['ml'],
-    'artificial intelligence': ['ai'],
-    'natural language processing': ['nlp'],
+    'aws': ['amazon web services'],
+    'gcp': ['google cloud platform'],
+    'ci/cd': ['continuous integration', 'continuous deployment'],
+    'ml': ['machine learning'],
+    'ai': ['artificial intelligence'],
+    'nlp': ['natural language processing'],
   };
 
   for (const [main, alts] of Object.entries(aliases)) {
-    const allVariants = [main, ...alts];
-    const cvMatches = allVariants.some(v => cv.includes(v) || v.includes(cv));
-    const jdMatches = allVariants.some(v => jd.includes(v) || v.includes(jd));
-    if (cvMatches && jdMatches) return true;
+    const variants = [main, ...alts];
+    if (variants.some(v => cv.includes(v) || v.includes(cv)) &&
+        variants.some(v => jd.includes(v) || v.includes(jd))) {
+      return true;
+    }
   }
 
   return false;
 }
 
-/**
- * Match CV skills against JD required skills
- */
 function matchSkills(
   cvSkills: string[],
   jdRequiredSkills: string[],
@@ -152,32 +139,24 @@ function matchSkills(
   const missingSkills: string[] = [];
 
   for (const jdSkill of jdRequiredSkills) {
-    const isMatched = cvSkills.some(cvSkill => keywordsMatch(cvSkill, jdSkill));
-    if (isMatched) {
+    const matched = cvSkills.some(cv => keywordsMatch(cv, jdSkill));
+    if (matched) {
       matchedSkills.push(jdSkill);
     } else {
       missingSkills.push(jdSkill);
     }
   }
 
-  // Check must-have skills separately
-  const missingMustHaveSkills: string[] = [];
-  for (const mustHave of jdMustHaveSkills) {
-    const isMatched = cvSkills.some(cvSkill => keywordsMatch(cvSkill, mustHave));
-    if (!isMatched) {
-      missingMustHaveSkills.push(mustHave);
-    }
-  }
+  const missingMustHaveSkills = jdMustHaveSkills.filter(mustHave =>
+    !cvSkills.some(cv => keywordsMatch(cv, mustHave))
+  );
 
-  // Base skills score: Matched / Total
   let skillsScore = matchedSkills.length / jdRequiredSkills.length;
 
-  // Apply must-have penalty if any critical skills are missing
   const hasMustHavePenalty = missingMustHaveSkills.length > 0;
-  if (hasMustHavePenalty) {
-    // Reduce score based on how many must-haves are missing
-    const mustHavePenalty = (missingMustHaveSkills.length / jdMustHaveSkills.length) * MUST_HAVE_PENALTY_MULTIPLIER;
-    skillsScore = Math.max(0, skillsScore - mustHavePenalty);
+  if (hasMustHavePenalty && jdMustHaveSkills.length > 0) {
+    const penaltyRatio = missingMustHaveSkills.length / jdMustHaveSkills.length;
+    skillsScore = Math.max(0, skillsScore - penaltyRatio * MUST_HAVE_PENALTY_MULTIPLIER);
   }
 
   return {
@@ -189,176 +168,125 @@ function matchSkills(
   };
 }
 
-/**
- * Calculate experience score
- * Formula: min(1, Candidate Years / Required Years)
- */
 function calculateExperienceScore(
   candidateYears: number | undefined,
   requiredYears: number | undefined
 ): number {
-  // If no requirement specified, give full score
   if (!requiredYears || requiredYears <= 0) return 1;
-  
-  // If candidate experience unknown, give partial credit
   if (candidateYears === undefined || candidateYears < 0) return 0.5;
-  
   return Math.min(1, candidateYears / requiredYears);
 }
 
-/**
- * Calculate education score
- * Formula: min(1, CV Level / Job Level)
- * Education Levels: 1=High School, 2=Associate, 3=Bachelor, 4=Master, 5=PhD
- */
 function calculateEducationScore(
-  candidateEducationLevel: number | undefined,
-  requiredEducationLevel: number | undefined
+  candidateLevel: number | undefined,
+  requiredLevel: number | undefined
 ): number {
-  // If no requirement specified, give full score
-  if (!requiredEducationLevel || requiredEducationLevel <= 0) return 1;
-  
-  // If candidate education unknown, give partial credit
-  if (candidateEducationLevel === undefined || candidateEducationLevel <= 0) return 0.5;
-  
-  return Math.min(1, candidateEducationLevel / requiredEducationLevel);
+  if (!requiredLevel || requiredLevel <= 0) return 1;
+  if (candidateLevel === undefined || candidateLevel <= 0) return 0.5;
+  return Math.min(1, candidateLevel / requiredLevel);
 }
 
-/**
- * Extract highest education level from profile
- */
 function getHighestEducationLevel(profile: ExtractedProfile): number {
-  if (!profile.education || profile.education.length === 0) return 0;
-  
-  const levels = profile.education
-    .map(edu => edu.level || 0)
-    .filter(level => level > 0);
-  
-  if (levels.length === 0) {
-    // Try to infer from degree names
-    for (const edu of profile.education) {
-      const degree = (edu.degree || '').toLowerCase();
-      if (degree.includes('phd') || degree.includes('doctorate')) return 5;
-      if (degree.includes('master') || degree.includes('msc') || degree.includes('mba')) return 4;
-      if (degree.includes('bachelor') || degree.includes('bsc') || degree.includes('ba')) return 3;
-      if (degree.includes('associate')) return 2;
-      if (degree.includes('high school') || degree.includes('diploma')) return 1;
+  if (!profile.education?.length) return 0;
+
+  let maxLevel = 0;
+
+  for (const edu of profile.education) {
+    if (edu.level && edu.level > maxLevel) {
+      maxLevel = edu.level;
     }
-    return 0;
   }
-  
-  return Math.max(...levels);
+
+  if (maxLevel === 0) {
+    // Fallback inference from degree name
+    for (const edu of profile.education) {
+      const deg = (edu.degree || '').toLowerCase();
+      if (/phd|doctorate/.test(deg)) return 5;
+      if (/master|msc|mba/.test(deg)) return 4;
+      if (/bachelor|bsc|ba/.test(deg)) return 3;
+      if (/associate/.test(deg)) return 2;
+      if (/high school|diploma/.test(deg)) return 1;
+    }
+  }
+
+  return maxLevel;
 }
 
-/**
- * Match CV languages against JD required languages
- */
 function matchLanguages(
   cvLanguages: string[],
-  jdRequiredLanguages: string[]
+  requiredLanguages: string[]
 ): {
   matchedLanguages: string[];
   missingLanguages: string[];
   languageScore: number;
 } {
-  if (jdRequiredLanguages.length === 0) {
-    return {
-      matchedLanguages: [],
-      missingLanguages: [],
-      languageScore: 1
-    };
+  if (requiredLanguages.length === 0) {
+    return { matchedLanguages: [], missingLanguages: [], languageScore: 1 };
   }
 
-  const matchedLanguages: string[] = [];
-  const missingLanguages: string[] = [];
+  const matched: string[] = [];
+  const missing: string[] = [];
 
-  for (const jdLang of jdRequiredLanguages) {
-    const isMatched = cvLanguages.some(cvLang => 
-      normalizeKeyword(cvLang) === normalizeKeyword(jdLang) ||
-      normalizeKeyword(cvLang).includes(normalizeKeyword(jdLang)) ||
-      normalizeKeyword(jdLang).includes(normalizeKeyword(cvLang))
+  for (const reqLang of requiredLanguages) {
+    const matchedLang = cvLanguages.find(cvLang =>
+      normalizeKeyword(cvLang) === normalizeKeyword(reqLang) ||
+      normalizeKeyword(cvLang).includes(normalizeKeyword(reqLang)) ||
+      normalizeKeyword(reqLang).includes(normalizeKeyword(cvLang))
     );
-    
-    if (isMatched) {
-      matchedLanguages.push(jdLang);
+
+    if (matchedLang) {
+      matched.push(reqLang);
     } else {
-      missingLanguages.push(jdLang);
+      missing.push(reqLang);
     }
   }
 
-  const languageScore = matchedLanguages.length / jdRequiredLanguages.length;
+  const languageScore = matched.length / requiredLanguages.length;
 
-  return {
-    matchedLanguages,
-    missingLanguages,
-    languageScore
-  };
+  return { matchedLanguages: matched, missingLanguages: missing, languageScore };
 }
 
 // ── Main Suitability Calculation ────────────────────────────────────────────────
 
-/**
- * Calculate overall suitability score between a CV profile and job requirements
- * 
- * @param cvProfile - Extracted profile from candidate's CV
- * @param jobRequirements - Extracted requirements from job description
- * @param customWeights - Optional dynamic weights extracted from job description
- * @param weightExplanations - Optional explanations for why each weight was chosen
- * @returns SuitabilityResult with overall score and breakdown
- */
 export function calculateSuitability(
   cvProfile: ExtractedProfile,
   jobRequirements: ExtractedJobRequirements,
   customWeights?: Partial<ScoringWeights> | null,
   weightExplanations?: WeightExplanation | null
 ): SuitabilityResult {
-  // Validate and normalize weights
-  const weights = validateWeights(customWeights ?? null);
-  
-  // Get CV skills (combine from profile skills and keywords)
+  const weights = validateWeights(customWeights);
+
   const cvSkills = cvProfile.skills || [];
-  
-  // Get CV languages
   const cvLanguages = (cvProfile.languages || []).map(l => l.language);
-  
-  // Get candidate's total years of experience
   const candidateYears = cvProfile.totalYearsExperience;
-  
-  // Get highest education level
   const candidateEducationLevel = getHighestEducationLevel(cvProfile);
 
-  // ── Calculate Individual Scores ───────────────────────────────────────────────
-
-  // 1. Skills Score (50% weight)
   const allRequiredSkills = [
     ...jobRequirements.requiredSkills,
     ...(jobRequirements.preferredSkills || [])
   ];
+
   const skillsResult = matchSkills(
     cvSkills,
     allRequiredSkills,
     jobRequirements.mustHaveSkills || []
   );
 
-  // 2. Experience Score (25% weight)
   const experienceScore = calculateExperienceScore(
     candidateYears,
     jobRequirements.requiredYearsExperience
   );
 
-  // 3. Education Score (10% weight)
   const educationScore = calculateEducationScore(
     candidateEducationLevel,
     jobRequirements.requiredEducationLevel
   );
 
-  // 4. Language Score (15% weight)
   const languageResult = matchLanguages(
     cvLanguages,
     jobRequirements.requiredLanguages || []
   );
 
-  // ── Calculate Weighted Overall Score ──────────────────────────────────────────
   const subScores: SuitabilitySubScores = {
     skillsScore: skillsResult.skillsScore,
     experienceScore,
@@ -366,8 +294,6 @@ export function calculateSuitability(
     languageScore: languageResult.languageScore
   };
 
-  // Final Formula with DYNAMIC WEIGHTS:
-  // (skills_weight × Skills) + (experience_weight × Experience) + (language_weight × Language) + (education_weight × Education)
   const overallScore = (
     weights.skills * subScores.skillsScore +
     weights.experience * subScores.experienceScore +
@@ -376,10 +302,10 @@ export function calculateSuitability(
   ) * 100;
 
   return {
-    overallScore: Math.round(overallScore * 10) / 10, // Round to 1 decimal
+    overallScore: Math.round(overallScore * 10) / 10,
     subScores,
-    weights, // Include the weights used in the result
-    weightExplanations: weightExplanations || undefined,
+    weights,
+    weightExplanations: weightExplanations ?? undefined,
     matchedSkills: skillsResult.matchedSkills,
     missingSkills: skillsResult.missingSkills,
     missingMustHaveSkills: skillsResult.missingMustHaveSkills,
@@ -390,9 +316,7 @@ export function calculateSuitability(
 }
 
 /**
- * Calculate suitability using raw keywords extracted by AI
- * This is a simplified version that uses keyword arrays directly
- * Supports dynamic weights extracted from job description
+ * Simplified version using raw keyword arrays (used by generateAnalysis)
  */
 export function calculateSuitabilityFromKeywords(
   cvKeywords: string[],
@@ -409,31 +333,50 @@ export function calculateSuitabilityFromKeywords(
     weightExplanations?: WeightExplanation | null;
   }
 ): SuitabilityResult {
-  // Create profile and requirements from keywords
+  // Build minimal profile from keywords + additional data
   const cvProfile: ExtractedProfile = {
+    personalInfo: {
+      name: null,
+      email: null,
+      phone: null,
+      location: null,
+      linkedin: null,
+      portfolio: null
+    },
+    summary: null,
     skills: cvKeywords,
-    totalYearsExperience: additionalData?.candidateYearsExperience,
-    education: additionalData?.candidateEducationLevel 
-      ? [{ level: additionalData.candidateEducationLevel }] 
-      : undefined,
-    languages: (additionalData?.candidateLanguages || []).map(lang => ({ language: lang }))
+    education: additionalData?.candidateEducationLevel != null
+      ? [{ 
+          degree: null,
+          field: null,
+          institution: null,
+          year: null,
+          level: additionalData.candidateEducationLevel 
+        }]
+      : [],
+    experience: [],
+    languages: (additionalData?.candidateLanguages || []).map(lang => ({
+      language: lang,
+      proficiency: null
+    })),
+    totalYearsExperience: additionalData?.candidateYearsExperience ?? 0
   };
 
   const jobRequirements: ExtractedJobRequirements = {
     requiredSkills: jdKeywords,
+    preferredSkills: [],
     mustHaveSkills: mustHaveKeywords,
-    requiredYearsExperience: additionalData?.requiredYearsExperience,
-    requiredEducationLevel: additionalData?.requiredEducationLevel,
-    requiredLanguages: additionalData?.requiredLanguages
+    requiredYearsExperience: additionalData?.requiredYearsExperience ?? 0,
+    requiredEducationLevel: additionalData?.requiredEducationLevel ?? 0,
+    requiredLanguages: additionalData?.requiredLanguages ?? []
   };
 
   return calculateSuitability(
-    cvProfile, 
-    jobRequirements, 
+    cvProfile,
+    jobRequirements,
     additionalData?.customWeights,
     additionalData?.weightExplanations
   );
 }
 
-// Export default weights for external use
 export { DEFAULT_WEIGHTS };

@@ -4,19 +4,16 @@
 export type ApplicationStatus = 'Analyzed' | 'Applied' | 'Interview' | 'Offer' | 'Rejected';
 export type ApplicationChannel = 'Email' | 'Company Portal' | 'LinkedIn';
 export type SkillPriority = 'Required' | 'Nice-to-have';
-export type ATSIssueType = 'structure' | 'keyword' | 'formatting';
+export type ATSIssueType = 'structure' | 'keyword' | 'formatting' | 'ai_failure'; // ← added ai_failure
 export type Severity = 'low' | 'medium' | 'high';
 
-/**
- * Allowed categories for resume improvement suggestions
- */
 export type SuggestionCategory =
   | 'Summary'
   | 'Experience'
   | 'Skills'
   | 'Format'
-  | 'General'     // Useful for fallback / system-level messages
-  | 'Other';      // Catch-all for uncategorized or future needs
+  | 'General'
+  | 'Other';
 
 export type SuggestionPriority = 'high' | 'medium' | 'low';
 
@@ -37,59 +34,59 @@ export interface Suggestion {
   priority: SuggestionPriority;
 }
 
-// ── Extracted Profile from CV ───────────────────────────────────────────────────
+// ── Extracted from Resume ───────────────────────────────────────────────────────
 export interface ExtractedProfile {
-  personalInfo?: {
-    name?: string;
-    email?: string;
-    phone?: string;
-    location?: string;
-    linkedin?: string;
-    portfolio?: string;
+  personalInfo: {
+    name: string | null;
+    email: string | null;
+    phone: string | null;
+    location: string | null;
+    linkedin: string | null;
+    portfolio: string | null;
   };
-  summary?: string;
-  education?: {
-    degree?: string;
-    field?: string;
-    institution?: string;
-    year?: number;
-    level?: number; // 1=High School, 2=Associate, 3=Bachelor, 4=Master, 5=PhD
-  }[];
-  experience?: {
-    title?: string;
-    company?: string;
-    duration?: string;
-    yearsOfExperience?: number;
-    description?: string;
-  }[];
-  skills?: string[];
-  languages?: {
+  summary: string | null;
+  education: Array<{
+    degree: string | null;
+    field: string | null;
+    institution: string | null;
+    year: number | null;
+    level: number | null; // 1=HS, 2=Assoc, 3=Bachelor, 4=Master, 5=PhD
+  }>;
+  experience: Array<{
+    title: string | null;
+    company: string | null;
+    duration: string | null;
+    yearsOfExperience: number | null;
+    description?: string | null;
+  }>;
+  skills: string[];
+  languages: Array<{
     language: string;
-    proficiency?: 'native' | 'fluent' | 'intermediate' | 'basic';
-  }[];
-  totalYearsExperience?: number;
+    proficiency: 'native' | 'fluent' | 'intermediate' | 'basic' | null;
+  }>;
+  totalYearsExperience: number;
 }
 
-// ── Extracted Requirements from Job Description ────────────────────────────────
+// ── Extracted from Job Description ──────────────────────────────────────────────
 export interface ExtractedJobRequirements {
   requiredSkills: string[];
-  preferredSkills?: string[];
-  mustHaveSkills?: string[]; // Critical skills that heavily impact score
-  requiredYearsExperience?: number;
-  requiredEducationLevel?: number; // 1=High School, 2=Associate, 3=Bachelor, 4=Master, 5=PhD
-  requiredLanguages?: string[];
+  preferredSkills: string[];
+  mustHaveSkills: string[];           // ← made required + always array
+  requiredYearsExperience: number;    // ← made required + number (use 0 when unknown)
+  requiredEducationLevel: number;     // ← made required + number (use 0 when unknown)
+  requiredLanguages: string[];
 }
 
-// ── Dynamic Scoring Weights (extracted from Job Description) ───────────────────
+// ── Dynamic Scoring Weights ─────────────────────────────────────────────────────
 export interface ScoringWeights {
-  skills: number;      // 0-1, typically 0.30-0.60
-  experience: number;  // 0-1, typically 0.15-0.35
-  education: number;   // 0-1, typically 0.05-0.25
-  language: number;    // 0-1, typically 0.05-0.25
+  skills: number;
+  experience: number;
+  education: number;
+  language: number;
 }
 
 export interface WeightExplanation {
-  skills: string;      // Why this weight was chosen
+  skills: string;
   experience: string;
   education: string;
   language: string;
@@ -99,26 +96,25 @@ export interface ExtractedWeights {
   weights: ScoringWeights;
   explanations: WeightExplanation;
   signals: {
-    isExperienceHeavy: boolean;    // "5+ years required", "senior role"
-    isEducationRequired: boolean;   // "degree required", "PhD preferred"
-    isLanguageCritical: boolean;    // "must speak Finnish", "native English"
-    isSkillsHeavy: boolean;         // Long list of technical requirements
+    isExperienceHeavy: boolean;
+    isEducationRequired: boolean;
+    isLanguageCritical: boolean;
+    isSkillsHeavy: boolean;
   };
 }
 
-// ── Suitability Sub-Scores ──────────────────────────────────────────────────────
+// ── Suitability Calculation Result ──────────────────────────────────────────────
 export interface SuitabilitySubScores {
-  skillsScore: number;      // 0-1
-  experienceScore: number;  // 0-1
-  educationScore: number;   // 0-1
-  languageScore: number;    // 0-1
+  skillsScore: number;      // 0–1
+  experienceScore: number;  // 0–1
+  educationScore: number;   // 0–1
+  languageScore: number;    // 0–1
 }
 
-// ── Suitability Result ──────────────────────────────────────────────────────────
 export interface SuitabilityResult {
-  overallScore: number;           // 0-100 percentage
+  overallScore: number;           // 0–100
   subScores: SuitabilitySubScores;
-  weights: ScoringWeights;        // The weights used for this calculation
+  weights: ScoringWeights;
   weightExplanations?: WeightExplanation;
   matchedSkills: string[];
   missingSkills: string[];
@@ -128,68 +124,47 @@ export interface SuitabilityResult {
   hasMustHavePenalty: boolean;
 }
 
+// ── Main Analysis Result ────────────────────────────────────────────────────────
 export interface AnalysisResults {
-  overallMatch: number; // 0-100
+  overallMatch: number;           // 0–100
   subScores: {
-    skillsMatch: number;     // 0-100
-    experienceMatch: number; // 0-100
-    languageLocationMatch: number; // 0-100
+    skillsMatch: number;          // 0–100
+    experienceMatch: number;      // 0–100
+    languageLocationMatch: number;// 0–100
   };
+  atsScore: number;               // 0–100
   matchedSkills: string[];
   missingSkills: SkillGap[];
-  atsScore: number; // 0-100
   atsIssues: ATSIssue[];
   suggestions: Suggestion[];
   jdKeywords: string[];
   cvKeywords: string[];
+  mustHaveSkills: string[];       // ← added here (critical keywords)
 
-  // Optional richer profile extraction (can be populated later if you enhance parsing)
-  extractedProfile?: {
-    personalInfo?: {
-      name?: string;
-      email?: string;
-      phone?: string;
-      location?: string;
-      linkedin?: string;
-      portfolio?: string;
-    };
-    summary?: string;
-    education?: unknown[];     // could be typed more strictly later
-    experience?: unknown[];    // could be typed more strictly later
-    skills?: string[];
-  };
-  
   extractedProfile?: ExtractedProfile;
   extractedJobRequirements?: ExtractedJobRequirements;
   suitability?: SuitabilityResult;
 }
 
-/**
- * Shape of data fetched from Supabase (snake_case column names)
- * - All fields that are required in DB but optional in mock/partial objects are marked ?
- */
+// ── Supabase / Form shapes ──────────────────────────────────────────────────────
 export interface JobApplication {
   id: string;
-  user_id?: string;                    // optional in mock, required from Supabase
-  job_title?: string;                  // optional in mock
+  user_id?: string;
+  job_title?: string;
   company?: string;
   location?: string;
   status?: ApplicationStatus;
   channel?: ApplicationChannel;
-  application_date: Date | string | null;   // supports Date (in code) or string (from DB)
-  job_description?: string;            // optional in mock
-  resume_name?: string;                // optional in mock
-  resume_text?: string;                // optional in mock
-  resume_file_path?: string;           // path in storage bucket
-  analysis?: AnalysisResults;          // optional (some apps may not have AI yet)
+  application_date: Date | string | null;
+  job_description?: string;
+  resume_name?: string;
+  resume_text?: string;
+  resume_file_path?: string;
+  analysis?: AnalysisResults;
   created_at?: string;
   updated_at?: string;
 }
 
-/**
- * Shape of data coming from the form / NewApplicationInput (camelCase is fine here)
- * Used in NewApplicationForm and passed to addApplication
- */
 export interface NewApplicationInput {
   jobTitle: string;
   company: string;
@@ -199,8 +174,8 @@ export interface NewApplicationInput {
   jobDescription: string;
   resumeName: string;
   resumeText: string;
-  resume_file_path?: string;          // comes from upload response
-  analysis?: AnalysisResults;         // optional, usually added later
+  resume_file_path?: string;
+  analysis?: AnalysisResults;
 }
 
 export interface User {
