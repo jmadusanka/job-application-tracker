@@ -10,8 +10,9 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.17.0",
+    "@supabase/gotrue-js": "^2.95.3",
     "@supabase/ssr": "^0.8.0",
-    "@supabase/supabase-js": "^2.93.3",
+    "@supabase/supabase-js": "^2.95.3",
     "@types/pdf-parse": "^1.1.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
