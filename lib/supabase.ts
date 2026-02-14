@@ -18,6 +18,7 @@ if (supabaseUrl && supabaseAnonKey) {
   try {
     supabase = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
+        flowType: 'pkce',  // Added to force secure PKCE code flow
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: true,
