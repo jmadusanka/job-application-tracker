@@ -9,9 +9,10 @@ import { cn } from '@/lib/utils';
 
 interface ApplicationCardProps {
   application: JobApplication;
+  onEdit?: (application: JobApplication) => void;
 }
 
-export function ApplicationCard({ application }: ApplicationCardProps) {
+export function ApplicationCard({ application, onEdit }: ApplicationCardProps) {
   const { selectedApplicationId, selectApplication, updateApplication, deleteApplication } = useApplications();
 
   const isSelected = selectedApplicationId === application.id;
@@ -28,8 +29,9 @@ export function ApplicationCard({ application }: ApplicationCardProps) {
 
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // TODO: replace alert with real edit modal / navigation later
-    alert('Edit functionality coming soon!');
+    if (onEdit) {
+      onEdit(application);
+    }
     setShowActionMenu(false);
   };
 

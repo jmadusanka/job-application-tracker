@@ -3,7 +3,7 @@
 import { useState, useEffect, FormEvent, ChangeEvent } from 'react';
 import { useApplications } from '@/context/ApplicationContext';
 import { useSupabase } from '@/context/SupabaseProvider';
-import { NewApplicationInput, ApplicationStatus, ApplicationChannel } from '@/lib/types';
+import { NewApplicationInput, ApplicationStatus, ApplicationChannel, JobApplication } from '@/lib/types';
 import { generateAnalysis } from '@/lib/analysis';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import { X, Upload, Loader2 } from 'lucide-react';
 
 interface NewApplicationFormProps {
   onClose: () => void;
+  application?: JobApplication; // For edit mode
 }
 
 interface PreviousCV {
@@ -23,19 +24,20 @@ interface PreviousCV {
   resume_file_path: string;
 }
 
-export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
-  const { addApplication } = useApplications();
+export function NewApplicationForm({ onClose, application }: NewApplicationFormProps) {
+  const { addApplication, updateApplication } = useApplications();
   const { supabase, session } = useSupabase();
+  const isEditMode = !!application;
 
   const [formData, setFormData] = useState<Partial<NewApplicationInput>>({
-    jobTitle: '',
-    company: '',
-    location: '',
-    status: 'Analyzed' as ApplicationStatus,
-    channel: 'Company Portal' as ApplicationChannel,
-    jobDescription: '',
-    resumeName: '',
-    resumeText: '',
+    jobTitle: application?.job_title || '',
+    company: application?.company || '',
+    location: application?.location || '',
+    status: application?.status || 'Analyzed' as ApplicationStatus,
+    channel: application?.channel || 'Company Portal' as ApplicationChannel,
+    jobDescription: application?.job_description || '',
+    resumeName: application?.resume_name || '',
+    resumeText: application?.resume_text || '',
   });
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -122,8 +124,8 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
     setErrorMessage(null);
 
     let resumeName = formData.resumeName || '';
-    let resumeText = '';
-    let resumeFilePath: string | undefined = undefined;
+    let resumeText = application?.resume_text || '';
+    let resumeFilePath: string | undefined = application?.resume_file_path;
 
     // Handle resume selection/upload
     if (useExistingCV && selectedExistingCV) {
@@ -172,7 +174,7 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
     setUploading(false);
     setAnalyzing(true);
 
-    // Run AI analysis
+    // Run AI analysis (always recalculate with new data)
     let analysis;
     try {
       analysis = await generateAnalysis(
@@ -191,24 +193,41 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
 
     // Save to Supabase
     try {
-      await addApplication({
-        jobTitle: formData.jobTitle,
-        company: formData.company,
-        location: formData.location,
-        status: formData.status,
-        channel: formData.channel,
-        jobDescription: formData.jobDescription,
-        resumeName,
-        resumeText,
-        resume_file_path: resumeFilePath,
-        analysis,
-      } as NewApplicationInput);
-
-      console.log('[NewApplicationForm] Application saved successfully');
+      if (isEditMode && application) {
+        // Update existing application
+        await updateApplication(application.id, {
+          job_title: formData.jobTitle,
+          company: formData.company,
+          location: formData.location,
+          status: formData.status,
+          channel: formData.channel,
+          job_description: formData.jobDescription,
+          resume_name: resumeName,
+          resume_text: resumeText,
+          resume_file_path: resumeFilePath,
+          analysis,
+        });
+        console.log('[NewApplicationForm] Application updated successfully');
+      } else {
+        // Create new application
+        await addApplication({
+          jobTitle: formData.jobTitle,
+          company: formData.company,
+          location: formData.location,
+          status: formData.status,
+          channel: formData.channel,
+          jobDescription: formData.jobDescription,
+          resumeName,
+          resumeText,
+          resume_file_path: resumeFilePath,
+          analysis,
+        } as NewApplicationInput);
+        console.log('[NewApplicationForm] Application saved successfully');
+      }
       onClose();
     } catch (error) {
       console.error('Save error:', error);
-      setErrorMessage('Failed to save application');
+      setErrorMessage(isEditMode ? 'Failed to update application' : 'Failed to save application');
     } finally {
       setAnalyzing(false);
     }
@@ -220,8 +239,8 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>New Job Application</CardTitle>
-              <CardDescription>Add a new job application to track</CardDescription>
+              <CardTitle>{isEditMode ? 'Edit Application' : 'New Job Application'}</CardTitle>
+              <CardDescription>{isEditMode ? 'Update your job application details' : 'Add a new job application to track'}</CardDescription>
             </div>
             <Button variant="ghost" size="sm" onClick={onClose}>
               <X className="w-4 h-4" />
