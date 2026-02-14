@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, FormEvent, ChangeEvent } from 'react';
+import { useState, useEffect, FormEvent, ChangeEvent } from 'react';
 import { useApplications } from '@/context/ApplicationContext';
 import { useSupabase } from '@/context/SupabaseProvider';
 import { NewApplicationInput, ApplicationStatus, ApplicationChannel } from '@/lib/types';
@@ -12,33 +12,20 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { X, Upload, Loader2 } from 'lucide-react';
 
-// List of previously uploaded CVs (from uploads/resumes)
-const previouslyUploadedCVs = [
-  "1769622884270-CV_Dinesh_20.10.2022-(1).pdf",
-  "1769623029563-CV_Dinesh_20.10.2022-(1).pdf",
-  "1769623136070-CV_Dinesh_20.10.2022-(1).pdf",
-  "1769623248072-CV_Dinesh_20.10.2022-(1).pdf",
-  "1769623394184-CV_Dinesh_20.10.2022-(1).pdf",
-  "1769624775404-CV_Dinesh_20.10.2022-(1).pdf",
-  "1769625828120-CV_Dinesh_20.10.2022-(1).pdf",
-  "1769625942799-CV_Dinesh_20.10.2022-(1).pdf",
-  "1769628705030-CV_Dinesh_20.10.2022-(1).pdf",
-  "1769765506257-Manjula-CV-(4).pdf",
-  "1769767102984-CV_Dinesh_20.10.2022-(1).pdf",
-  "1769975113906-CV_Dinesh_20.10.2022-(1).pdf",
-  "1769975321673-CV_Dinesh_20.10.2022-(1).pdf",
-  "1769975591472-CV_Dinesh_20.10.2022-(1).pdf",
-  "1769975739060-CV_Dinesh_20.10.2022-(1).pdf",
-  "1769976167586-CV_Dinesh_20.10.2022-(1).pdf"
-];
 
 interface NewApplicationFormProps {
   onClose: () => void;
 }
 
+interface PreviousCV {
+  resume_name: string;
+  resume_text: string;
+  resume_file_path: string;
+}
+
 export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
   const { addApplication } = useApplications();
-  const { session } = useSupabase();
+  const { supabase, session } = useSupabase();
 
   const [formData, setFormData] = useState<Partial<NewApplicationInput>>({
     jobTitle: '',
@@ -57,6 +44,46 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [useExistingCV, setUseExistingCV] = useState(false);
   const [selectedExistingCV, setSelectedExistingCV] = useState("");
+  const [previousCVs, setPreviousCVs] = useState<PreviousCV[]>([]);
+  const [loadingCVs, setLoadingCVs] = useState(false);
+
+  // Fetch previously uploaded CVs from database
+  useEffect(() => {
+    const fetchPreviousCVs = async () => {
+      if (!session?.user?.id || !supabase) return;
+
+      setLoadingCVs(true);
+      try {
+        const { data, error } = await supabase
+          .from('job_applications')
+          .select('resume_name, resume_text, resume_file_path')
+          .eq('user_id', session.user.id)
+          .not('resume_name', 'is', null)
+          .not('resume_file_path', 'is', null)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('[NewApplicationForm] Error fetching CVs:', error);
+        } else if (data) {
+          // Remove duplicates based on resume_file_path
+          const uniqueCVs = data.reduce((acc: PreviousCV[], current) => {
+            if (!acc.find(cv => cv.resume_file_path === current.resume_file_path)) {
+              acc.push(current);
+            }
+            return acc;
+          }, []);
+          setPreviousCVs(uniqueCVs);
+          console.log('[NewApplicationForm] Loaded', uniqueCVs.length, 'unique CVs');
+        }
+      } catch (err) {
+        console.error('[NewApplicationForm] Failed to fetch CVs:', err);
+      } finally {
+        setLoadingCVs(false);
+      }
+    };
+
+    fetchPreviousCVs();
+  }, [session?.user?.id, supabase]);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -100,9 +127,18 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
 
     // Handle resume selection/upload
     if (useExistingCV && selectedExistingCV) {
-      resumeName = selectedExistingCV;
-      // If you need to fetch text from server for existing CV → do it here
-      resumeText = ''; // placeholder – add real fetch if needed
+      // Find the selected CV from the previous CVs list
+      const selectedCV = previousCVs.find(cv => cv.resume_file_path === selectedExistingCV);
+      if (selectedCV) {
+        resumeName = selectedCV.resume_name;
+        resumeText = selectedCV.resume_text || '';
+        resumeFilePath = selectedCV.resume_file_path;
+        console.log('[NewApplicationForm] Using existing CV:', resumeName);
+      } else {
+        setErrorMessage('Selected CV not found');
+        setUploading(false);
+        return;
+      }
     } else if (selectedFile) {
       try {
         const uploadFormData = new FormData();
@@ -289,19 +325,25 @@ export function NewApplicationForm({ onClose }: NewApplicationFormProps) {
                   setUseExistingCV(!!val);
                   if (val) {
                     setSelectedFile(null);
-                    setFormData(prev => ({ ...prev, resumeName: val }));
+                    const selectedCV = previousCVs.find(cv => cv.resume_file_path === val);
+                    if (selectedCV) {
+                      setFormData(prev => ({ ...prev, resumeName: selectedCV.resume_name }));
+                    }
                   }
                 }}
+                disabled={loadingCVs}
               >
-                <option value="">-- Select a file --</option>
-                {previouslyUploadedCVs.map(filename => (
-                  <option key={filename} value={filename}>
-                    {filename}
+                <option value="">
+                  {loadingCVs ? 'Loading...' : previousCVs.length === 0 ? '-- No previous CVs found --' : '-- Select a file --'}
+                </option>
+                {previousCVs.map((cv) => (
+                  <option key={cv.resume_file_path} value={cv.resume_file_path}>
+                    {cv.resume_name}
                   </option>
                 ))}
               </select>
               <p className="text-xs text-slate-500">
-                Or upload a new file below.
+                {previousCVs.length > 0 ? `${previousCVs.length} CV(s) available. Or upload a new file below.` : 'Upload a new file below.'}
               </p>
             </div>
 

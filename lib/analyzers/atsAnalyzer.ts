@@ -1,17 +1,12 @@
-// lib/analyzers/atsAnalyzer.ts
-
 import { ATSIssue, AnalysisResults, SkillGap } from '@/lib/types';
 
-// ──────────────────────────────────────────────────────────────
+
 // Keyword matching between two arrays (resume vs job description)
-// ──────────────────────────────────────────────────────────────
-/**
- * Performs case-insensitive partial matching between source (resume) and target (job desc) keywords.
- * A keyword from target is considered matched if any source keyword contains it or vice versa.
- */
+
+
 export function matchKeywords(
-  sourceKeywords: string[],   // e.g. extracted from resume
-  targetKeywords: string[]    // e.g. extracted from job description
+  sourceKeywords: string[],   //  extracted from resume
+  targetKeywords: string[]    //extracted from job description
 ): { matched: string[]; missing: string[] } {
   const matched: string[] = [];
   const missing: string[] = [];
@@ -36,11 +31,10 @@ export function matchKeywords(
   return { matched, missing };
 }
 
-// ──────────────────────────────────────────────────────────────
 // Main ATS compatibility analysis function
-// ──────────────────────────────────────────────────────────────
+
 export function analyzeATS(resumeText: string, jobDescription: string): AnalysisResults {
-  // Extract keywords/skills (very basic version – can be improved later)
+  // Extract keywords/skills
   const requiredSkills = extractSkills(jobDescription);
   const resumeSkills = extractSkills(resumeText);
 
@@ -60,7 +54,7 @@ export function analyzeATS(resumeText: string, jobDescription: string): Analysis
       ? Math.round((matched.length / requiredSkills.length) * 100)
       : 0;
 
-  // Placeholder values – replace with real logic when you have experience/language extraction
+  // Placeholder values 
   const experienceMatch = 75;
   const languageLocationMatch = 80;
 
@@ -76,7 +70,7 @@ export function analyzeATS(resumeText: string, jobDescription: string): Analysis
   // Generate actionable suggestions
   const suggestions = generateSuggestions(missingSkills, atsIssues);
 
-  // Return complete AnalysisResults shape (all required fields included)
+  // Return complete AnalysisResults shape 
   return {
     overallMatch,
     subScores: {
@@ -91,17 +85,17 @@ export function analyzeATS(resumeText: string, jobDescription: string): Analysis
     suggestions,
     jdKeywords: requiredSkills.slice(0, 20),     // top keywords from JD
     cvKeywords: resumeSkills.slice(0, 20),       // top keywords from resume
-    mustHaveSkills: requiredSkills.slice(0, 8),  // example: first 8 as must-have
-    // Optional richer fields (can be filled later or left undefined)
+    mustHaveSkills: requiredSkills.slice(0, 8),  // first 8 as must-have
+   
     extractedProfile: undefined,
     extractedJobRequirements: undefined,
     suitability: undefined,
   };
 }
 
-// ──────────────────────────────────────────────────────────────
+
 // Very basic skill/phrase extraction
-// ──────────────────────────────────────────────────────────────
+
 export function extractSkills(text: string): string[] {
   if (!text?.trim()) return [];
 
@@ -120,15 +114,15 @@ export function extractSkills(text: string): string[] {
   return unique;
 }
 
-// ──────────────────────────────────────────────────────────────
+
 // Detect common ATS-related formatting/structure issues
-// ──────────────────────────────────────────────────────────────
+
 function detectATSIssues(resumeText: string): ATSIssue[] {
   const issues: ATSIssue[] = [];
 
   const lower = resumeText.toLowerCase();
 
-  // Too short → probably not a real resume
+  // Too short
   if (resumeText.length < 150) {
     issues.push({
       type: 'structure',
@@ -158,9 +152,9 @@ function detectATSIssues(resumeText: string): ATSIssue[] {
   return issues;
 }
 
-// ──────────────────────────────────────────────────────────────
-// Generate actionable improvement suggestions
-// ──────────────────────────────────────────────────────────────
+
+// Generate a improvement suggestions
+
 function generateSuggestions(
   missingSkills: SkillGap[],
   issues: ATSIssue[]
