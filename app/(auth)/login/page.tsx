@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, FormEvent, useEffect, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation' // ← Added/ensured useSearchParams import
 import { useSupabase } from '@/context/SupabaseProvider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,15 +9,32 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AlertCircle, CheckCircle } from 'lucide-react'
 
-// Fallback while Suspense resolves (invisible or tiny placeholder)
+// Force dynamic rendering to avoid prerender errors during build
+export const dynamic = 'force-dynamic'
+
+// Tiny fallback to prevent layout jump
 function SuspenseFallback() {
-  return <div className="h-10" /> // or null – keeps layout stable
+  return <div className="min-h-[40px]" />
 }
 
-// Safe component for displaying OAuth errors (uses useSearchParams)
+// Password reset success message
+function PasswordResetSuccess() {
+  const searchParams = useSearchParams() // safe here
+  if (searchParams.get('message') === 'password-updated') {
+    return (
+      <div className="flex items-center text-sm text-green-600 bg-green-50 p-3 rounded-md mb-4">
+        <CheckCircle className="w-4 h-4 mr-2" />
+        Password updated successfully! Please sign in.
+      </div>
+    )
+  }
+  return null
+}
+
+// OAuth error display
 function OAuthErrorDisplay() {
-  const searchParams = useSearchParams()
-  const [error, setError] = useState<string>('')
+  const searchParams = useSearchParams() // safe here
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const err = searchParams.get('error')
@@ -29,7 +46,7 @@ function OAuthErrorDisplay() {
       setError(msg || 'Authentication failed. Please check your connection and try again.')
     }
 
-    // Clean URL after showing error (nice UX)
+    // Clean URL
     if (err) {
       window.history.replaceState({}, '', window.location.pathname)
     }
@@ -48,7 +65,7 @@ function OAuthErrorDisplay() {
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('') // for password form errors
+  const [formError, setFormError] = useState('')
   const router = useRouter()
   const { supabase } = useSupabase()
 
@@ -62,10 +79,10 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    setError('')
+    setFormError('')
 
     if (!email || !password) {
-      setError('Please enter both email and password')
+      setFormError('Please enter both email and password')
       return
     }
 
@@ -75,7 +92,7 @@ export default function LoginPage() {
     })
 
     if (error) {
-      setError(error.message)
+      setFormError(error.message)
     } else {
       router.push('/dashboard')
     }
@@ -95,7 +112,7 @@ export default function LoginPage() {
 
     if (error) {
       console.error('Google Sign-In Error:', error)
-      setError('Google Sign-In failed. Please try again.')
+      setFormError('Google Sign-In failed. Please try again.')
     }
   }
 
@@ -110,14 +127,9 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Success message for password reset (wrapped in Suspense) */}
+            {/* Password reset message – isolated */}
             <Suspense fallback={<SuspenseFallback />}>
-              {useSearchParams().get('message') === 'password-updated' && (
-                <div className="flex items-center text-sm text-green-600 bg-green-50 p-3 rounded-md mb-4">
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Password updated successfully! Please sign in.
-                </div>
-              )}
+              <PasswordResetSuccess />
             </Suspense>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -144,15 +156,14 @@ export default function LoginPage() {
                 />
               </div>
 
-              {/* Password form error */}
-              {error && (
+              {formError && (
                 <div className="flex items-center text-sm text-red-600 bg-red-50 p-3 rounded-md">
                   <AlertCircle className="w-4 h-4 mr-2" />
-                  {error}
+                  {formError}
                 </div>
               )}
 
-              {/* OAuth error – now safely in Suspense */}
+              {/* OAuth error – isolated */}
               <Suspense fallback={<SuspenseFallback />}>
                 <OAuthErrorDisplay />
               </Suspense>
