@@ -4,7 +4,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-// Debug logs – very important right now
+// Debug logs 
 console.log('[supabase init] NODE_ENV:', process.env.NODE_ENV)
 console.log('[supabase init] NEXT_PUBLIC_SUPABASE_URL:', supabaseUrl ? 'present' : 'MISSING')
 console.log('[supabase init] NEXT_PUBLIC_SUPABASE_ANON_KEY length:', supabaseAnonKey?.length || 'MISSING')

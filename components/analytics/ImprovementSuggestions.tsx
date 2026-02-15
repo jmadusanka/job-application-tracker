@@ -10,7 +10,7 @@ interface ImprovementSuggestionsProps {
 }
 
 export function ImprovementSuggestions({ suggestions }: ImprovementSuggestionsProps) {
-  // ── Helpers ────────────────────────────────────────────────────────────────
+  //  Helpers 
   const getCategoryIcon = (category: SuggestionCategory) => {
     switch (category) {
       case 'Summary': return '📝'
@@ -47,20 +47,20 @@ export function ImprovementSuggestions({ suggestions }: ImprovementSuggestionsPr
         }
       case 'low':
         return {
-          variant: 'secondary' as const,   // ← safe & neutral fallback
+          variant: 'secondary' as const,   
           icon: <CheckCircle2 className="w-3.5 h-3.5 text-slate-500" />,
           label: 'LOW'
         }
       default:
         return {
-          variant: 'secondary' as const,   // ← fixed: use 'secondary' instead of 'outline'
+          variant: 'secondary' as const,   
           icon: null,
           label: priority.toUpperCase() || 'INFO'
         }
     }
   }
 
-  // ── Group suggestions by category ──────────────────────────────────────────
+  // Group suggestions by category 
   const grouped = suggestions.reduce((acc, s) => {
     const cat = s.category as SuggestionCategory
     if (!acc[cat]) acc[cat] = []

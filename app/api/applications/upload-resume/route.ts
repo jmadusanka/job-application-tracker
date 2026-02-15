@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { parseResume } from '@/lib/parsers/resumeParser'; // ← Fixed path (your project uses /parsers/ folder)
+import { parseResume } from '@/lib/parsers/resumeParser'; // 
 
 // Server-side Supabase client with service_role key (secure – bypasses RLS for server actions)
 const supabaseUrl = process.env.SUPABASE_URL!;
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     console.log('[upload-resume] File uploaded to:', storagePath);
 
-    // Parse text server-side (your existing parseResume works perfectly here)
+    // Parse text server-side 
     const parsed = await parseResume(file);
     console.log('[upload-resume] Resume parsed – text length:', parsed.text.length);
 
