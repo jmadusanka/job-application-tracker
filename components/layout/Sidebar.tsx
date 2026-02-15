@@ -1,13 +1,15 @@
 'use client';
 
 import { useSupabase } from '@/context/SupabaseProvider';
-import { useRouter } from 'next/navigation';
-import { LayoutDashboard, LogOut, User } from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
+import { LayoutDashboard, LogOut, User, History, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 export function Sidebar() {
   const { supabase, session } = useSupabase();
   const router = useRouter();
+  const pathname = usePathname();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -15,6 +17,12 @@ export function Sidebar() {
   };
 
   const user = session?.user;
+
+  const navItems = [
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/history', label: 'Analysis History', icon: History },
+    { href: '/demand', label: 'Demand Skills', icon: TrendingUp },
+  ];
 
   return (
     <div className="w-60 h-screen bg-slate-900 text-white flex flex-col fixed left-0 top-0">
@@ -40,10 +48,23 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 p-4">
         <div className="space-y-1">
-          <div className="flex items-center gap-3 px-3 py-2 bg-blue-600 rounded-md">
-            <LayoutDashboard className="w-5 h-5" />
-            <span className="text-sm font-medium">Dashboard</span>
-          </div>
+          {navItems.map(({ href, label, icon: Icon }) => {
+            const isActive = pathname === href;
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                  isActive
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                <span className="text-sm font-medium">{label}</span>
+              </Link>
+            );
+          })}
         </div>
       </nav>
 
