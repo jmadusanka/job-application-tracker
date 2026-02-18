@@ -19,14 +19,11 @@ export default function HistoryPage() {
   if (!session) return null;
 
   return (
-    <DashboardLayout>
+    <DashboardLayout
+      title="Analysis History"
+      subtitle="Track your resume performance and skill gaps over time"
+    >
       <div className="max-w-5xl mx-auto">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-slate-900">Analysis History</h2>
-          <p className="text-sm text-slate-500 mt-1">
-            Track your resume performance and skill gaps over time
-          </p>
-        </div>
         <AnalysisHistory />
       </div>
     </DashboardLayout>
