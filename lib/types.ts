@@ -141,6 +141,9 @@ export interface AnalysisResults {
   cvKeywords: string[];
   mustHaveSkills: string[];       // ← added here (critical keywords)
 
+  isError?: boolean;              // NEW: Explicit error flag
+  errorMessage?: string;          // NEW: Clear error message for the UI
+
   extractedProfile?: ExtractedProfile;
   extractedJobRequirements?: ExtractedJobRequirements;
   suitability?: SuitabilityResult;

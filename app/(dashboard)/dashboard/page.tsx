@@ -7,11 +7,8 @@ import { useApplications } from '@/context/ApplicationContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ApplicationList } from '@/components/applications/ApplicationList';
 import { OverallMatchScore } from '@/components/analytics/OverallMatchScore';
-import { SubScores } from '@/components/analytics/SubScores';
 import { SkillsAnalysis } from '@/components/analytics/SkillsAnalysis';
-import { ATSCompatibility } from '@/components/analytics/ATSCompatibility';
 import { ImprovementSuggestions } from '@/components/analytics/ImprovementSuggestions';
-import { SuitabilityEngine } from '@/components/analytics/SuitabilityEngine';
 import { Card, CardContent } from '@/components/ui/card';
 import { FileSearch } from 'lucide-react';
 
@@ -33,8 +30,8 @@ export default function DashboardPage() {
 
   // Safe resume name with fallback
   const resumeName = selectedApplication?.resume_name ?? 'No resume uploaded';
-  const shortResumeName = resumeName.length > 25 
-    ? `${resumeName.substring(0, 25)}...` 
+  const shortResumeName = resumeName.length > 25
+    ? `${resumeName.substring(0, 25)}...`
     : resumeName;
 
   return (
@@ -66,10 +63,10 @@ export default function DashboardPage() {
                           📅 Applied{' '}
                           {selectedApplication.application_date
                             ? new Date(selectedApplication.application_date).toLocaleDateString('en-GB', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                              })
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                            })
                             : 'N/A'}
                         </span>
                         <span>
@@ -99,39 +96,48 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
 
-              {/* Overall Match Score */}
-              <OverallMatchScore score={selectedApplication?.analysis?.overallMatch ?? 0} />
+              {/* Overall Match Score (Only if NOT error) */}
+              {selectedApplication.analysis?.isError ? (
+                <Card className="border-red-200 bg-red-50">
+                  <CardContent className="pt-6 pb-6 text-center">
+                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-100 text-red-600 mb-4">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-bold text-red-800 mb-2">Analysis Failed</h3>
+                    <p className="text-red-700 max-w-md mx-auto mb-4">
+                      {selectedApplication.analysis.errorMessage || 'Something went wrong while analyzing this application.'}
+                    </p>
+                    <div className="flex justify-center gap-3">
+                      <p className="text-sm text-red-600 italic">
+                        Check your API key in the environmental variables and try again.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  <OverallMatchScore score={selectedApplication?.analysis?.overallMatch ?? 0} />
 
-              {/* Sub-Scores */}
-              <SubScores 
-                subScores={selectedApplication?.analysis?.subScores ?? {
-                  skillsMatch: 50,
-                  experienceMatch: 50,
-                  languageLocationMatch: 90
-                }} 
-              />
+                  {/* Skills Analysis */}
+                  <SkillsAnalysis
+                    matchedSkills={selectedApplication?.analysis?.matchedSkills ?? []}
+                    missingSkills={selectedApplication?.analysis?.missingSkills ?? []}
+                    jdKeywords={selectedApplication?.analysis?.jdKeywords ?? []}
+                    cvKeywords={selectedApplication?.analysis?.cvKeywords ?? []}
+                  />
 
-              {/* Suitability Engine */}
-              <SuitabilityEngine />
-
-              {/* Skills Analysis */}
-              <SkillsAnalysis
-                matchedSkills={selectedApplication?.analysis?.matchedSkills ?? []}
-                missingSkills={selectedApplication?.analysis?.missingSkills ?? []}
-                jdKeywords={selectedApplication?.analysis?.jdKeywords ?? []}
-                cvKeywords={selectedApplication?.analysis?.cvKeywords ?? []}
-              />
-
-              {/* ATS Compatibility */}
-              <ATSCompatibility
-                atsScore={selectedApplication?.analysis?.atsScore ?? 70}
-                atsIssues={selectedApplication?.analysis?.atsIssues ?? []}
-              />
-
-              {/* Improvement Suggestions */}
-              <ImprovementSuggestions 
-                suggestions={selectedApplication?.analysis?.suggestions ?? []} 
-              />
+                  {/* Improvement Suggestions */}
+                  {(() => {
+                    const suggestions = selectedApplication?.analysis?.suggestions ?? [];
+                    console.log('Resume Improvement Suggestions API return:', suggestions);
+                    return (
+                      <ImprovementSuggestions suggestions={suggestions} />
+                    );
+                  })()}
+                </>
+              )}
             </>
           ) : (
             <Card className="h-full flex items-center justify-center">
@@ -151,12 +157,12 @@ export default function DashboardPage() {
 
       {/* Job Description Modal */}
       {showJobDescription && selectedApplication && (
-        <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" 
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
           onClick={() => setShowJobDescription(false)}
         >
-          <div 
-            className="bg-white rounded-lg max-w-3xl w-full max-h-[80vh] overflow-hidden" 
+          <div
+            className="bg-white rounded-lg max-w-3xl w-full max-h-[80vh] overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between p-4 border-b">

@@ -12,7 +12,7 @@ async function matchKeywords(cvKeywords: string[], jdKeywords: string[]) {
   const cvLower = new Set(cvKeywords.map(k => k.toLowerCase()));
   const matched: string[] = [];
   const missing: string[] = [];
-  
+
   jdKeywords.forEach(keyword => {
     const lower = keyword.toLowerCase();
     if (cvLower.has(lower)) {
@@ -21,7 +21,7 @@ async function matchKeywords(cvKeywords: string[], jdKeywords: string[]) {
       missing.push(lower);
     }
   });
-  
+
   return { matched, missing };
 }
 
@@ -113,9 +113,9 @@ Schema:
     cvKeywords = cvKeywords.filter((kw: any): kw is string => {
       if (typeof kw !== 'string') return false;
       const k = kw.toLowerCase().trim();
-      return resumeTextLower.includes(k) || 
-             resumeTextLower.includes(k.replace(/\./g, '')) ||
-             resumeTextLower.includes(k.replace(/\.js$/i, ''));
+      return resumeTextLower.includes(k) ||
+        resumeTextLower.includes(k.replace(/\./g, '')) ||
+        resumeTextLower.includes(k.replace(/\.js$/i, ''));
     });
 
     const jdKeywords: string[] = Array.isArray(parsed.jdKeywords) ? parsed.jdKeywords.slice(0, 20) : [];
@@ -198,7 +198,17 @@ Schema:
       matchedSkills: matchedSkills.slice(0, 6),
       missingSkills: missingSkills,
       atsIssues: [],
-      suggestions: Array.isArray(parsed.suggestions) ? (parsed.suggestions as any[]).slice(0, 6) : [],
+      suggestions: (() => {
+        const arr = Array.isArray(parsed.suggestions) ? (parsed.suggestions as any[]).slice(0, 6) : [];
+        if (arr.length === 0) {
+          return [{
+            category: 'General',
+            text: 'Resume looks good – consider tailoring keywords more closely to the job.',
+            priority: 'medium',
+          }];
+        }
+        return arr;
+      })(),
       jdKeywords,
       cvKeywords: cvKeywords.slice(0, 15),
       extractedProfile,
@@ -212,26 +222,28 @@ Schema:
 
     //  ERROR RETURN 
     return {
-      overallMatch: 50,
+      isError: true,
+      errorMessage: 'Analysis failed. Please check your API key or try again with a shorter Job Description.',
+      overallMatch: 0,
       subScores: {
-        skillsMatch: 50,
-        experienceMatch: 50,
-        languageLocationMatch: 90,
+        skillsMatch: 0,
+        experienceMatch: 0,
+        languageLocationMatch: 0,
       },
-      atsScore: 70,
+      atsScore: 0,
       matchedSkills: [],
       missingSkills: [],
       atsIssues: [
         {
           type: 'ai_failure' as const,
           severity: 'high' as const,
-          message: 'Analysis failed – model response invalid.',
+          message: 'AI Model unreachable or returned an invalid response.',
         },
       ],
       suggestions: [
         {
           category: 'General' as const,
-          text: 'Shorten inputs and retry.',
+          text: 'Ensure your API key is valid and try again.',
           priority: 'high' as const,
         },
       ],
@@ -256,12 +268,12 @@ Schema:
       extractedJobRequirements: {
         requiredSkills: [],
         preferredSkills: [],
-        mustHaveSkills: [],  
-        requiredYearsExperience: 0,  
-        requiredEducationLevel: 0,   
+        mustHaveSkills: [],
+        requiredYearsExperience: 0,
+        requiredEducationLevel: 0,
         requiredLanguages: [],
       },
-      mustHaveSkills: [],  
+      mustHaveSkills: [],
     };
   }
 }

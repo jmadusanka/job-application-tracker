@@ -6,8 +6,6 @@ import { cn } from '@/lib/utils';
 interface SubScoresProps {
   subScores: {
     skillsMatch: number;
-    experienceMatch: number;
-    languageLocationMatch: number;
   };
 }
 
@@ -19,9 +17,7 @@ export function SubScores({ subScores }: SubScoresProps) {
   };
 
   const scores = [
-    { label: 'Skills Match', value: subScores.skillsMatch, icon: '💼' },
-    { label: 'Experience Level', value: subScores.experienceMatch, icon: '📊' },
-    { label: 'Language & Location', value: subScores.languageLocationMatch, icon: '🌍' }
+    { label: 'Skills Match', value: subScores.skillsMatch, icon: '💼' }
   ];
 
   return (
