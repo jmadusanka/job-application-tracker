@@ -133,6 +133,11 @@ Schema:
       priority: 'Required' as const,
     }));
 
+    // Calculate keyword coverage with better logic
+    const keywordCoverage = jdKeywords.length > 0 
+      ? Math.min(Math.round((matched.length / jdKeywords.length) * 100), 100)
+      : 0;
+
     //  Safe extraction with proper null handling 
     const extractedProfile: ExtractedProfile = {
       personalInfo: {
@@ -191,7 +196,7 @@ Schema:
       overallMatch: Math.round(suitability.overallScore),
       subScores: {
         skillsMatch: Math.round(suitability.subScores.skillsScore * 100),
-        experienceMatch: Math.round(suitability.subScores.experienceScore * 100),
+        experienceMatch: keywordCoverage, // Now shows keyword coverage
         languageLocationMatch: Math.round(suitability.subScores.languageScore * 100),
       },
       atsScore: Math.round(suitability.subScores.skillsScore * 100),
@@ -210,58 +215,7 @@ Schema:
   } catch (err: any) {
     console.error('[generateAnalysis] Failed:', err?.message ?? err);
 
-    //  ERROR RETURN 
-    return {
-      overallMatch: 50,
-      subScores: {
-        skillsMatch: 50,
-        experienceMatch: 50,
-        languageLocationMatch: 90,
-      },
-      atsScore: 70,
-      matchedSkills: [],
-      missingSkills: [],
-      atsIssues: [
-        {
-          type: 'ai_failure' as const,
-          severity: 'high' as const,
-          message: 'Analysis failed – model response invalid.',
-        },
-      ],
-      suggestions: [
-        {
-          category: 'General' as const,
-          text: 'Shorten inputs and retry.',
-          priority: 'high' as const,
-        },
-      ],
-      jdKeywords: [],
-      cvKeywords: [],
-      extractedProfile: {
-        personalInfo: {
-          name: null,
-          email: null,
-          phone: null,
-          location: null,
-          linkedin: null,
-          portfolio: null,
-        },
-        summary: null,
-        skills: [],
-        education: [],
-        experience: [],
-        languages: [],
-        totalYearsExperience: 0,
-      },
-      extractedJobRequirements: {
-        requiredSkills: [],
-        preferredSkills: [],
-        mustHaveSkills: [],  
-        requiredYearsExperience: 0,  
-        requiredEducationLevel: 0,   
-        requiredLanguages: [],
-      },
-      mustHaveSkills: [],  
-    };
+      // Short error throw
+      throw new Error('Analysis failed. Please try again later.');
   }
 }

@@ -20,8 +20,8 @@ export function SubScores({ subScores }: SubScoresProps) {
 
   const scores = [
     { label: 'Skills Match', value: subScores.skillsMatch, icon: '💼' },
-    { label: 'Experience Level', value: subScores.experienceMatch, icon: '📊' },
-    { label: 'Language & Location', value: subScores.languageLocationMatch, icon: '🌍' }
+    { label: 'Keyword Coverage', value: subScores.experienceMatch, icon: '📊' },
+    // { label: 'Language & Location', value: subScores.languageLocationMatch, icon: '🌍' }
   ];
 
   return (

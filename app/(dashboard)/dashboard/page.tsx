@@ -9,9 +9,9 @@ import { ApplicationList } from '@/components/applications/ApplicationList';
 import { OverallMatchScore } from '@/components/analytics/OverallMatchScore';
 import { SubScores } from '@/components/analytics/SubScores';
 import { SkillsAnalysis } from '@/components/analytics/SkillsAnalysis';
-import { ATSCompatibility } from '@/components/analytics/ATSCompatibility';
+// import { ATSCompatibility } from '@/components/analytics/ATSCompatibility';
 import { ImprovementSuggestions } from '@/components/analytics/ImprovementSuggestions';
-import { SuitabilityEngine } from '@/components/analytics/SuitabilityEngine';
+// import { SuitabilityEngine } from '@/components/analytics/SuitabilityEngine';
 import { Card, CardContent } from '@/components/ui/card';
 import { FileSearch } from 'lucide-react';
 
@@ -112,7 +112,8 @@ export default function DashboardPage() {
               />
 
               {/* Suitability Engine */}
-              <SuitabilityEngine />
+              {/* Suitability Engine */}
+              {/* <SuitabilityEngine /> */}
 
               {/* Skills Analysis */}
               <SkillsAnalysis
@@ -123,10 +124,10 @@ export default function DashboardPage() {
               />
 
               {/* ATS Compatibility */}
-              <ATSCompatibility
+              {/* <ATSCompatibility
                 atsScore={selectedApplication?.analysis?.atsScore ?? 70}
                 atsIssues={selectedApplication?.analysis?.atsIssues ?? []}
-              />
+              /> */}
 
               {/* Improvement Suggestions */}
               <ImprovementSuggestions 
