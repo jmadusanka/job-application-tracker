@@ -5,7 +5,7 @@ import { useApplications } from '@/context/ApplicationContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SkillGap } from '@/lib/types';
-import { TrendingUp, CheckCircle2, AlertTriangle, BarChart2 } from 'lucide-react';
+import { TrendingUp, CheckCircle2, BarChart2 } from 'lucide-react';
 import { ApplicationHistoryRow } from './ApplicationHistoryRow';
 
 function cardBg(color: string): string {
@@ -76,15 +76,12 @@ export function AnalysisHistory() {
     }
 
     let totalScore = 0;
-    let totalAts = 0;
     let best = 0;
 
     for (let i = 0; i < analyzedApps.length; i++) {
       const score = analyzedApps[i].analysis!.overallMatch;
-      const ats = analyzedApps[i].analysis!.atsScore ?? 0;
 
       totalScore = totalScore + score;
-      totalAts = totalAts + ats;
 
       if (score > best) {
         best = score;
@@ -95,7 +92,6 @@ export function AnalysisHistory() {
       total: analyzedApps.length,
       avg: Math.round(totalScore / analyzedApps.length),
       best: best,
-      avgAts: Math.round(totalAts / analyzedApps.length),
     };
   }, [analyzedApps]);
 
@@ -146,13 +142,12 @@ export function AnalysisHistory() {
   }
 
   const matchColor = textColor(stats!.avg);
-  const atsScoreColor = textColor(stats!.avgAts);
 
   const historyList = [...analyzedApps].reverse();
 
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <StatCard
           label="Total Analyses"
           value={stats!.total}
@@ -173,13 +168,6 @@ export function AnalysisHistory() {
           sub="highest score achieved"
           icon={CheckCircle2}
           color="text-green-600"
-        />
-        <StatCard
-          label="Avg ATS Score"
-          value={`${stats!.avgAts}%`}
-          sub="ATS compatibility avg"
-          icon={AlertTriangle}
-          color={atsScoreColor}
         />
       </div>
 

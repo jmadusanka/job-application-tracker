@@ -25,7 +25,6 @@ export function ApplicationHistoryRow({ app, index }: { app: JobApplication; ind
   }
 
   const overall = analysis.overallMatch ?? 0;
-  const ats = analysis.atsScore ?? 0;
 
   const jobTitle = app.job_title || 'Untitled';
   const company = app.company || '—';
@@ -56,9 +55,6 @@ export function ApplicationHistoryRow({ app, index }: { app: JobApplication; ind
         <div className="flex items-center gap-3 shrink-0">
           <span className={`text-sm font-bold px-2.5 py-1 rounded-full ${scoreBg(overall)}`}>
             {overall}% match
-          </span>
-          <span className={`text-sm font-bold px-2.5 py-1 rounded-full ${scoreBg(ats)}`}>
-            ATS {ats}
           </span>
           <span className="text-slate-400">
             {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
